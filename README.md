@@ -87,7 +87,6 @@ gut-vibe/
 ├── package.json
 ├── wrangler.toml       # Cloudflare config
 ├── tsconfig.json       # TypeScript config
-├── CLAUDE.md           # Full specification
 └── README.md           # This file
 ```
 
