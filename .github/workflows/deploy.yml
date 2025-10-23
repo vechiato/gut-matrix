@@ -66,10 +66,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy public --project-name=gut-matrix
-        env:
-          # Note: KV bindings and environment variables are configured
-          # in Cloudflare Dashboard, not in wrangler.toml
-          # This prevents committing sensitive IDs to the repository
 
   deploy-preview:
     runs-on: ubuntu-latest
