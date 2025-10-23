@@ -637,6 +637,21 @@ body {
   margin-bottom: 0.75rem;
 }
 
+.notes-section .url-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.notes-section .url-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
 .notes-section textarea:focus {
   outline: none;
   border-color: var(--primary-color);
@@ -730,11 +745,27 @@ body {
   text-align: center;
 }
 
-.items-table input.input-label {
+.items-table input.input-label,
+.items-table textarea.input-label {
   text-align: left;
 }
 
-.items-table input.item-input:focus {
+.items-table textarea.input-label {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  resize: none;
+  overflow-y: auto;
+  line-height: 1.4;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.items-table input.item-input:focus,
+.items-table textarea.item-input:focus {
   outline: 2px solid var(--primary-color);
   border-color: var(--primary-color);
 }
@@ -747,6 +778,17 @@ body {
 .items-table .has-notes {
   margin-left: 0.5rem;
   font-size: 0.9rem;
+}
+
+.items-table .has-url {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.items-table .has-url:hover {
+  opacity: 0.7;
 }
 
 .items-table .btn-icon {
