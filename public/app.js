@@ -73,18 +73,24 @@ function loadRecentLists() {
   const recent = getRecent();
   const listEl = document.getElementById('recentList');
   if (recent.length === 0) {
-    listEl.innerHTML = '<p class="empty-state">No recent lists yet!</p>';
+    listEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <p class="empty-state-title">No lists yet</p>
+        <p class="empty-state-text">Create your first prioritization list above to get started</p>
+      </div>
+    `;
     return;
   }
   recent.sort((a, b) => b.timestamp - a.timestamp);
   listEl.innerHTML = recent.map(item => `
-    <div class="recent-item">
+    <a href="/matrix.html?slug=${item.slug}" class="recent-item">
       <div class="recent-item-info">
-        <h3>${escapeHtml(item.title)}</h3>
-        <p class="recent-item-meta">Scale ${item.scaleMin}-${item.scaleMax} • ${formatTime(item.timestamp)}</p>
+        <div class="recent-item-title">${escapeHtml(item.title)}</div>
+        <div class="recent-item-meta">Scale ${item.scaleMin}-${item.scaleMax} • ${formatTime(item.timestamp)}</div>
       </div>
-      <a href="/matrix.html?slug=${item.slug}">Open →</a>
-    </div>
+      <span class="recent-item-arrow">→</span>
+    </a>
   `).join('');
 }
 

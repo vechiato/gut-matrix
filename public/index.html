@@ -3,90 +3,172 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GUT Matrix - Prioritize with Gravity, Urgency, Tendency</title>
+  <title>GUT Matrix - Smart Prioritization for Teams</title>
+  <meta name="description" content="Prioritize tasks using the GUT Method: Gravity × Urgency × Tendency. Free, collaborative, no signup required.">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>🎯 GUT Matrix</h1>
-      <p class="subtitle">Prioritize using Gravity, Urgency, and Tendency</p>
-      <p class="info-text">Score = G × U × T (higher scores = higher priority)</p>
+    <!-- Hero Section -->
+    <header class="hero">
+      <div class="hero-content">
+        <h1 class="hero-title">
+          <span class="hero-icon">🎯</span>
+          GUT Matrix
+        </h1>
+        <p class="hero-subtitle">Smart prioritization using Gravity, Urgency, and Tendency</p>
+        <div class="hero-features">
+          <span class="feature-badge">✓ Free Forever</span>
+          <span class="feature-badge">✓ Real-time Collaboration</span>
+          <span class="feature-badge">✓ No Signup Required</span>
+        </div>
+      </div>
     </header>
 
     <main>
-      <section class="create-section">
-        <h2>Create New Prioritization List</h2>
+      <!-- Create Section -->
+      <section class="create-section card">
+        <div class="card-header">
+          <h2>Create New List</h2>
+          <p class="card-description">Start prioritizing in seconds</p>
+        </div>
         <form id="createForm">
           <div class="form-group">
-            <label for="title">Title (optional)</label>
-            <input type="text" id="title" name="title" placeholder="e.g., Q4 Backlog Prioritization" maxlength="200">
+            <label for="title">List Title</label>
+            <input 
+              type="text" 
+              id="title" 
+              name="title" 
+              placeholder="e.g., Q4 2024 Product Roadmap" 
+              maxlength="200"
+            >
           </div>
           
-          <div class="form-row">
+          <div class="form-row-compact">
             <div class="form-group">
-              <label for="scaleMin">Scale Min</label>
-              <input type="number" id="scaleMin" name="scaleMin" value="1" min="1" max="3" required>
-              <small>Typical: 1</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="scaleMax">Scale Max</label>
-              <input type="number" id="scaleMax" name="scaleMax" value="5" min="2" max="10" required>
-              <small>Typical: 5</small>
+              <label for="scaleMin">
+                Scale Range
+                <span class="label-help">Set your scoring scale</span>
+              </label>
+              <div class="scale-inputs">
+                <div class="scale-input-group">
+                  <span class="scale-label">Min</span>
+                  <input type="number" id="scaleMin" name="scaleMin" value="1" min="1" max="3" required>
+                </div>
+                <span class="scale-divider">to</span>
+                <div class="scale-input-group">
+                  <span class="scale-label">Max</span>
+                  <input type="number" id="scaleMax" name="scaleMax" value="5" min="2" max="10" required>
+                </div>
+              </div>
+              <small class="help-text">Recommended: 1-5 scale</small>
             </div>
           </div>
 
-          <button type="submit" class="btn-primary">Create List</button>
+          <button type="submit" class="btn-primary btn-large">
+            <span class="btn-icon">+</span>
+            Create List
+          </button>
         </form>
       </section>
 
+      <!-- How it Works Section -->
       <section class="info-section">
-        <h2>How GUT Method Works</h2>
-        <div class="gut-explanation">
-          <div class="gut-factor">
-            <h3>📊 Gravity (G)</h3>
-            <p>How serious is the problem or opportunity?</p>
-            <ul>
-              <li><strong>1</strong> - Very low impact</li>
-              <li><strong>3</strong> - Medium impact</li>
-              <li><strong>5</strong> - Critical impact</li>
-            </ul>
+        <div class="section-header">
+          <h2>How GUT Method Works</h2>
+          <p class="section-description">Score = G × U × T (higher scores = higher priority)</p>
+        </div>
+        
+        <div class="gut-grid">
+          <div class="gut-card">
+            <div class="gut-card-icon gravity">⚖️</div>
+            <h3>Gravity (G)</h3>
+            <p class="gut-card-description">How serious is the problem?</p>
+            <div class="gut-scale">
+              <div class="scale-item">
+                <span class="scale-num">1</span>
+                <span class="scale-desc">Very low impact</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">3</span>
+                <span class="scale-desc">Medium impact</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">5</span>
+                <span class="scale-desc">Critical impact</span>
+              </div>
+            </div>
           </div>
           
-          <div class="gut-factor">
-            <h3>⏱️ Urgency (U)</h3>
-            <p>How quickly does it need to be addressed?</p>
-            <ul>
-              <li><strong>1</strong> - Can wait months</li>
-              <li><strong>3</strong> - Weeks to address</li>
-              <li><strong>5</strong> - Needs immediate action</li>
-            </ul>
+          <div class="gut-card">
+            <div class="gut-card-icon urgency">⏱️</div>
+            <h3>Urgency (U)</h3>
+            <p class="gut-card-description">How quickly does it need addressing?</p>
+            <div class="gut-scale">
+              <div class="scale-item">
+                <span class="scale-num">1</span>
+                <span class="scale-desc">Can wait months</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">3</span>
+                <span class="scale-desc">Weeks to address</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">5</span>
+                <span class="scale-desc">Immediate action</span>
+              </div>
+            </div>
           </div>
           
-          <div class="gut-factor">
-            <h3>📈 Tendency (T)</h3>
-            <p>How likely is it to worsen if left alone?</p>
-            <ul>
-              <li><strong>1</strong> - Won't get worse</li>
-              <li><strong>3</strong> - Will gradually worsen</li>
-              <li><strong>5</strong> - Will rapidly deteriorate</li>
-            </ul>
+          <div class="gut-card">
+            <div class="gut-card-icon tendency">📈</div>
+            <h3>Tendency (T)</h3>
+            <p class="gut-card-description">Will it worsen if left alone?</p>
+            <div class="gut-scale">
+              <div class="scale-item">
+                <span class="scale-num">1</span>
+                <span class="scale-desc">Won't get worse</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">3</span>
+                <span class="scale-desc">Gradually worsens</span>
+              </div>
+              <div class="scale-item">
+                <span class="scale-num">5</span>
+                <span class="scale-desc">Rapidly deteriorates</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="recent-section">
-        <h2>My Recent Lists</h2>
-        <p class="info-text">Stored locally in your browser</p>
+      <!-- Recent Lists Section -->
+      <section class="recent-section card">
+        <div class="card-header">
+          <h2>Recent Lists</h2>
+          <p class="card-description">Stored locally in your browser</p>
+        </div>
         <div id="recentList" class="recent-list">
-          <p class="empty-state">No recent lists yet. Create one above!</p>
+          <div class="empty-state">
+            <div class="empty-state-icon">📋</div>
+            <p class="empty-state-title">No lists yet</p>
+            <p class="empty-state-text">Create your first prioritization list above to get started</p>
+          </div>
         </div>
       </section>
     </main>
 
-    <footer>
-      <p>Powered by Cloudflare Pages • GUT Prioritization Method</p>
+    <footer class="footer">
+      <div class="footer-content">
+        <p class="footer-text">
+          <strong>GUT Matrix</strong> • Powered by Cloudflare Pages
+        </p>
+        <div class="footer-links">
+          <a href="https://github.com/vechiato/gut-matrix" target="_blank" rel="noopener">GitHub</a>
+          <span class="footer-divider">•</span>
+          <a href="https://github.com/vechiato/gut-matrix#readme" target="_blank" rel="noopener">Documentation</a>
+        </div>
+      </div>
     </footer>
   </div>
 
