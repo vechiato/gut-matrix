@@ -262,8 +262,9 @@ function renderList() {
     return `
       <tr data-id="${item.id}">
         <td class="col-label">
-          <input type="text" value="${escapeHtml(item.label)}" data-field="label" class="item-input input-label" maxlength="200" placeholder="Item description">
+          <textarea data-field="label" class="item-input input-label" maxlength="400" placeholder="Item description" rows="1">${escapeHtml(item.label)}</textarea>
           ${item.notes ? '<span class="has-notes" title="Has notes">📝</span>' : ''}
+          ${item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" title="Open link">🔗</a>' : ''}
         </td>
         <td class="col-g"><input type="number" value="${userG}" data-field="g" class="item-input input-number" min="${currentList.scale.min}" max="${currentList.scale.max}" placeholder="${currentList.scale.min}"></td>
         <td class="col-u"><input type="number" value="${userU}" data-field="u" class="item-input input-number" min="${currentList.scale.min}" max="${currentList.scale.max}" placeholder="${currentList.scale.min}"></td>
@@ -282,7 +283,14 @@ function renderList() {
     `;
   }).join('');
   
-  tbody.querySelectorAll('.item-input').forEach(input => input.addEventListener('input', handleItemChange));
+  tbody.querySelectorAll('.item-input').forEach(input => {
+    input.addEventListener('input', handleItemChange);
+    // Auto-resize textareas
+    if (input.tagName === 'TEXTAREA') {
+      input.addEventListener('input', autoResizeTextarea);
+      autoResizeTextarea.call(input); // Initial resize
+    }
+  });
   tbody.querySelectorAll('.btn-notes').forEach(btn => btn.addEventListener('click', (e) => showNotes(e.target.dataset.id)));
   tbody.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', (e) => handleDeleteItem(e.target.dataset.id)));
   
@@ -291,6 +299,11 @@ function renderList() {
   }
   
   isDirty = false;
+}
+
+function autoResizeTextarea() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 150) + 'px'; // Max 150px height (~6 lines)
 }
 
 function handleItemChange(e) {
@@ -372,7 +385,8 @@ function handleAddItem() {
     id: crypto.randomUUID(),
     label: '',
     scores: {},  // Empty scores object - users will add their own
-    notes: undefined
+    notes: undefined,
+    url: undefined
   };
   
   currentList.items.push(newItem);
@@ -415,6 +429,7 @@ function showNotes(itemId) {
   currentNotesItemId = itemId;
   document.getElementById('notesItemLabel').textContent = item.label || 'Untitled Item';
   document.getElementById('notesTextarea').value = item.notes || '';
+  document.getElementById('urlInput').value = item.url || '';
   document.getElementById('notesSection').style.display = 'block';
 }
 
@@ -428,7 +443,15 @@ function handleSaveNotes() {
   const item = currentList.items.find(i => i.id === currentNotesItemId);
   if (!item) return;
   const notes = document.getElementById('notesTextarea').value.trim();
+  let url = document.getElementById('urlInput').value.trim();
+  
+  // Add https:// if URL is provided but doesn't have a protocol
+  if (url && !url.match(/^https?:\/\//i)) {
+    url = 'https://' + url;
+  }
+  
   item.notes = notes || undefined;
+  item.url = url || undefined;
   hideNotes();
   renderList();
   isDirty = true;
