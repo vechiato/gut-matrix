@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare Pages
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: production
       url: https://gut-matrix.pages.dev
@@ -63,14 +63,11 @@ jobs:
       - name: Install Wrangler
         run: npm install -g wrangler
 
-      - name: Build (if needed)
-        run: echo "No build step required - static files"
-
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Pages (Production)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy public --project-name=gut-matrix
+        run: npx wrangler pages deploy public --project-name=gut-matrix --branch=main --commit-dirty=true
 
   deploy-preview:
     runs-on: ubuntu-latest
