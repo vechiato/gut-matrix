@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Cloudflare
+.wrangler/
+wrangler.toml.backup
+wrangler.toml  
+
+# Environment files
+.dev.vars
+.env
+.env.local
+
+#other files
+.cache/
+CLAUDE.md
+EXPORT_IMPORT.md
+GITHUB_SETUP.md
+PROJECT_SUMMARY.md
+QUICKSTART.md
+SECURITY.md
+
+# Build outputs
+dist/
+
+# Coverage
+coverage/
+*.lcov
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+

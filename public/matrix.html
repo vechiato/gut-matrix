@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>List Editor - GUT Matrix</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="editor-header">
+      <div class="header-left">
+        <a href="/" class="btn-back">← Home</a>
+        <h1 id="listTitle" contenteditable="true" class="editable-title">Untitled List</h1>
+      </div>
+      <div class="header-right">
+        <span id="saveStatus" class="save-status">✓ Saved</span>
+        <button id="autoSaveToggle" class="btn-secondary btn-small">
+          <span id="autoSaveIndicator">Auto-save: OFF</span>
+        </button>
+        <button id="saveBtn" class="btn-primary">Save</button>
+        <button id="shareBtn" class="btn-secondary">Share</button>
+        <button id="deleteBtn" class="btn-danger">Delete</button>
+      </div>
+    </header>
+
+    <div class="editor-toolbar">
+      <div class="toolbar-group">
+        <button id="addItemBtn" class="btn-primary">+ Add Item</button>
+        <button id="sortBtn" class="btn-secondary">Sort by Score</button>
+      </div>
+      <div class="toolbar-group">
+        <button id="exportCsvBtn" class="btn-secondary" title="Export to CSV">📥 Export CSV</button>
+        <button id="exportJsonBtn" class="btn-secondary" title="Export to JSON">📥 Export JSON</button>
+        <button id="importBtn" class="btn-secondary" title="Import from CSV/JSON">📤 Import</button>
+        <input type="file" id="importFileInput" accept=".csv,.json" style="display: none;">
+      </div>
+      <div class="toolbar-info">
+        <span class="scale-info">Scale: <span id="scaleDisplay">1-5</span></span>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <main class="editor-main">
+      <div class="gut-guide">
+        <div class="guide-item">
+          <strong>G</strong> - Gravity: How serious?
+        </div>
+        <div class="guide-item">
+          <strong>U</strong> - Urgency: How quickly needed?
+        </div>
+        <div class="guide-item">
+          <strong>T</strong> - Tendency: Will it worsen?
+        </div>
+        <div class="guide-item">
+          <strong>Score = G × U × T</strong>
+        </div>
+        <div class="guide-item" style="flex-basis: 100%; font-size: 0.85em; opacity: 0.8;">
+          💡 Tip: Score items independently. Click "Save" to persist changes. Auto-save can be enabled via toggle button. Auto-syncs every 10 seconds.
+        </div>
+      </div>
+
+      <div class="items-container">
+        <table id="itemsTable" class="items-table">
+          <thead>
+            <tr>
+              <th class="col-label" rowspan="2">Item</th>
+              <th colspan="4" class="col-group-header">Your Scores</th>
+              <th colspan="5" class="col-group-header avg-group">Average Scores</th>
+              <th class="col-actions" rowspan="2">Actions</th>
+            </tr>
+            <tr>
+              <th class="col-g">G</th>
+              <th class="col-u">U</th>
+              <th class="col-t">T</th>
+              <th class="col-score">Score</th>
+              <th class="col-g avg-col">G</th>
+              <th class="col-u avg-col">U</th>
+              <th class="col-t avg-col">T</th>
+              <th class="col-score avg-col">Score</th>
+              <th class="col-count avg-col">👥</th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            <tr class="empty-state-row">
+              <td colspan="11">No items yet. Click "+ Add Item" to get started!</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Item Notes Section -->
+      <div id="notesSection" class="notes-section" style="display: none;">
+        <h3>Notes for: <span id="notesItemLabel"></span></h3>
+        <textarea id="notesTextarea" placeholder="Add notes or details..." maxlength="1024"></textarea>
+        <button id="saveNotesBtn" class="btn-secondary">Save Notes</button>
+        <button id="closeNotesBtn" class="btn-secondary">Close</button>
+      </div>
+    </main>
+
+    <footer>
+      <p class="info-text">
+        <span id="collaborationStatus">🔄 Live collaboration enabled</span> • 
+        Share this URL to collaborate • 
+        Anyone with the link can edit • 
+        Last saved: <span id="lastSaved">Never</span>
+      </p>
+    </footer>
+  </div>
+
+  <!-- Conflict Resolution Modal -->
+  <div id="conflictModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h2>⚠️ Conflict Detected</h2>
+      <p>The list was updated by someone else while you were editing.</p>
+      <div id="conflictDetails" class="conflict-details"></div>
+      <p><strong>What would you like to do?</strong></p>
+      <div class="modal-actions">
+        <button id="takeServerBtn" class="btn-primary">Use Their Version</button>
+        <button id="retryBtn" class="btn-secondary">Keep My Changes</button>
+        <button id="cancelBtn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/editor.js"></script>
+</body>
+</html>

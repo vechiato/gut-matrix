@@ -1,0 +1,33 @@
+{
+  "name": "gut-matrix",
+  "version": "1.0.0",
+  "description": "Lightweight multi-user Gut Matrix app running on Cloudflare Pages",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --kv MATRIX_STORE",
+    "build": "echo 'Static site, no build needed'",
+    "deploy": "wrangler pages deploy public",
+    "types": "tsc --noEmit",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+  },
+  "keywords": [
+    "cloudflare",
+    "pages",
+    "matrix",
+    "grid",
+    "collaborative"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241022.0",
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.44.0"
+  }
+}

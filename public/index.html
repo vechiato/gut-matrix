@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GUT Matrix - Prioritize with Gravity, Urgency, Tendency</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎯 GUT Matrix</h1>
+      <p class="subtitle">Prioritize using Gravity, Urgency, and Tendency</p>
+      <p class="info-text">Score = G × U × T (higher scores = higher priority)</p>
+    </header>
+
+    <main>
+      <section class="create-section">
+        <h2>Create New Prioritization List</h2>
+        <form id="createForm">
+          <div class="form-group">
+            <label for="title">Title (optional)</label>
+            <input type="text" id="title" name="title" placeholder="e.g., Q4 Backlog Prioritization" maxlength="200">
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="scaleMin">Scale Min</label>
+              <input type="number" id="scaleMin" name="scaleMin" value="1" min="1" max="3" required>
+              <small>Typical: 1</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="scaleMax">Scale Max</label>
+              <input type="number" id="scaleMax" name="scaleMax" value="5" min="2" max="10" required>
+              <small>Typical: 5</small>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary">Create List</button>
+        </form>
+      </section>
+
+      <section class="info-section">
+        <h2>How GUT Method Works</h2>
+        <div class="gut-explanation">
+          <div class="gut-factor">
+            <h3>📊 Gravity (G)</h3>
+            <p>How serious is the problem or opportunity?</p>
+            <ul>
+              <li><strong>1</strong> - Very low impact</li>
+              <li><strong>3</strong> - Medium impact</li>
+              <li><strong>5</strong> - Critical impact</li>
+            </ul>
+          </div>
+          
+          <div class="gut-factor">
+            <h3>⏱️ Urgency (U)</h3>
+            <p>How quickly does it need to be addressed?</p>
+            <ul>
+              <li><strong>1</strong> - Can wait months</li>
+              <li><strong>3</strong> - Weeks to address</li>
+              <li><strong>5</strong> - Needs immediate action</li>
+            </ul>
+          </div>
+          
+          <div class="gut-factor">
+            <h3>📈 Tendency (T)</h3>
+            <p>How likely is it to worsen if left alone?</p>
+            <ul>
+              <li><strong>1</strong> - Won't get worse</li>
+              <li><strong>3</strong> - Will gradually worsen</li>
+              <li><strong>5</strong> - Will rapidly deteriorate</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <h2>My Recent Lists</h2>
+        <p class="info-text">Stored locally in your browser</p>
+        <div id="recentList" class="recent-list">
+          <p class="empty-state">No recent lists yet. Create one above!</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Powered by Cloudflare Pages • GUT Prioritization Method</p>
+    </footer>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
