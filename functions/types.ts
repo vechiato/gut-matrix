@@ -21,6 +21,7 @@ export interface GutItem {
   scores: Record<string, UserScore>;  // userId -> UserScore
   avgScore?: AverageScore;  // Calculated from all user scores
   notes?: string;
+  url?: string;
 }
 
 export interface Scale {
@@ -43,6 +44,7 @@ export interface UserItemUpdate {
   u?: number;
   t?: number;
   notes?: string;
+  url?: string;
 }
 
 export interface CreateListRequest {

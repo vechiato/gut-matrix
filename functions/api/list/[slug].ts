@@ -162,6 +162,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
             item = { ...item, notes: incomingItem.notes };
           }
           
+          // Update url if provided
+          if (incomingItem.url !== undefined) {
+            item = { ...item, url: incomingItem.url };
+          }
+          
           // It's a user item update with g, u, t scores
           if (incomingItem.g !== undefined && incomingItem.u !== undefined && incomingItem.t !== undefined) {
             const userScore: import('../../types').UserScore = {

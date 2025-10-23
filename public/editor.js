@@ -477,7 +477,8 @@ async function handleSave() {
         g: userScore?.g,
         u: userScore?.u,
         t: userScore?.t,
-        notes: item.notes
+        notes: item.notes,
+        url: item.url
       };
     });
     
