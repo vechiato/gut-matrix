@@ -284,6 +284,7 @@ describe('File utility functions', () => {
       return (name || 'gut-list')
         .replace(/[^a-z0-9_-]/gi, '_')
         .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
         .toLowerCase();
     }
 
