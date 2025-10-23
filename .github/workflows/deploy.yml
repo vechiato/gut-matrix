@@ -41,6 +41,9 @@ jobs:
     name: Deploy to Cloudflare Pages
     needs: test
     if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://gut-matrix.pages.dev
     permissions:
       contents: read
       deployments: write
