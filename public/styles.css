@@ -19,6 +19,30 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --danger-color: #f87171;
+    --danger-hover: #ef4444;
+    --secondary-color: #9ca3af;
+    --secondary-hover: #d1d5db;
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --border-color: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --success-color: #34d399;
+    --accent-color: #a78bfa;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+  }
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -27,10 +51,16 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(to bottom, #fafafa 0%, #f4f4f5 100%);
+  background: var(--bg-color);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
+  }
 }
 
 .container {
@@ -354,6 +384,18 @@ body {
   background-color: #d1fae5;
 }
 
+@media (prefers-color-scheme: dark) {
+  .save-status.unsaved {
+    color: #fbbf24;
+    background-color: #78350f;
+  }
+
+  .save-status.saved {
+    color: #34d399;
+    background-color: #064e3b;
+  }
+}
+
 /* Auto-save toggle button */
 .btn-small {
   padding: 0.5rem 0.75rem;
@@ -518,6 +560,12 @@ body {
   z-index: 1000;
 }
 
+@media (prefers-color-scheme: dark) {
+  .modal {
+    background: rgba(0, 0, 0, 0.8);
+  }
+}
+
 .modal-content {
   background: var(--card-bg);
   padding: 2rem;
@@ -611,6 +659,18 @@ body {
   color: var(--danger-color);
 }
 
+@media (prefers-color-scheme: dark) {
+  .status.success {
+    background: #064e3b;
+    color: #34d399;
+  }
+
+  .status.error {
+    background: #7f1d1d;
+    color: #f87171;
+  }
+}
+
 /* Notes Section */
 .notes-section {
   background: #fffbeb;
@@ -618,6 +678,13 @@ body {
   border-radius: 8px;
   padding: 1.5rem;
   margin-top: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notes-section {
+    background: #422006;
+    border-color: #92400e;
+  }
 }
 
 .notes-section h3 {
@@ -696,6 +763,18 @@ body {
   color: #d97706;
 }
 
+@media (prefers-color-scheme: dark) {
+  .items-table .col-group-header {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
+
+  .items-table .col-group-header.avg-group {
+    background: #78350f;
+    color: #fbbf24;
+  }
+}
+
 .items-table td {
   padding: 0.5rem;
   border: 1px solid var(--border-color);
@@ -729,6 +808,12 @@ body {
 
 .items-table .avg-col {
   background: #fffbeb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .items-table .avg-col {
+    background: #422006;
+  }
 }
 
 .items-table .avg-value {
@@ -820,6 +905,12 @@ body {
   background: #eff6ff;
   border-radius: 8px;
   margin-bottom: 1.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .gut-guide {
+    background: #1e3a8a;
+  }
 }
 
 .guide-item {
@@ -943,6 +1034,20 @@ footer a {
 
 .gut-card-icon.tendency {
   background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .gut-card-icon.gravity {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+  }
+
+  .gut-card-icon.urgency {
+    background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  }
+
+  .gut-card-icon.tendency {
+    background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 100%);
+  }
 }
 
 .gut-card h3 {
