@@ -19,24 +19,36 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('createForm').addEventListener('submit', handleCreate);
 });
 
+function showFormError(message) {
+  const el = document.getElementById('createError');
+  el.textContent = message;
+  el.style.display = 'block';
+}
+
+function hideFormError() {
+  const el = document.getElementById('createError');
+  if (el) el.style.display = 'none';
+}
+
 async function handleCreate(e) {
   e.preventDefault();
+  hideFormError();
   const form = e.target;
   const submitBtn = form.querySelector('button[type="submit"]');
   const originalText = submitBtn.textContent;
-  
+
   try {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Creating...';
     const title = form.title.value.trim();
     const scaleMin = parseInt(form.scaleMin.value);
     const scaleMax = parseInt(form.scaleMax.value);
-    
+
     if (scaleMin >= scaleMax) {
-      alert('Scale min must be less than scale max');
+      showFormError('Max must be greater than min.');
       return;
     }
-    
+
     const response = await fetch('/api/list', {
       method: 'POST',
       headers: {
@@ -45,24 +57,21 @@ async function handleCreate(e) {
       },
       body: JSON.stringify({ title, scale: { min: scaleMin, max: scaleMax } })
     });
-    
-    // Handle rate limiting
+
     if (response.status === 429) {
       const rateLimitError = await response.json();
-      alert(`Rate Limit Exceeded\n\n${rateLimitError.message}\n\nYou've created too many lists recently. Please try again later.`);
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText;
+      showFormError(`Too many lists created recently. ${rateLimitError.message}`);
       return;
     }
-    
+
     if (!response.ok) throw new Error('Failed to create list');
-    
+
     const { slug } = await response.json();
     addToRecent({ slug, title: title || 'Untitled List', scaleMin, scaleMax, timestamp: Date.now() });
     window.location.href = `/matrix.html?slug=${slug}`;
   } catch (error) {
     console.error(error);
-    alert('Failed to create list');
+    showFormError('Failed to create list. Please try again.');
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = originalText;

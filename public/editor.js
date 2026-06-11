@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const slug = getSlugFromUrl();
   if (!slug) {
-    alert('No list specified');
     window.location.href = '/';
     return;
   }
@@ -132,6 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Undo toast
   document.getElementById('undoToastBtn').addEventListener('click', handleUndo);
+
+  // Error banner
+  document.getElementById('errorBannerClose').addEventListener('click', hideBanner);
 
   // Export/Import handlers
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
@@ -224,7 +226,6 @@ async function loadList(slug) {
     const response = await fetch(`/api/list/${slug}`);
     if (!response.ok) {
       if (response.status === 404) {
-        alert('List not found');
         window.location.href = '/';
         return;
       }
@@ -620,12 +621,10 @@ async function handleSave() {
     // Handle rate limiting
     if (response.status === 429) {
       const rateLimitError = await response.json();
-      setStatus(`⏱️ ${rateLimitError.message}`, 'error');
+      setStatus(`⏱️ Rate limited`, 'error');
       btn.disabled = false;
       btn.textContent = originalText;
-      
-      // Show alert with detailed message
-      alert(`Rate Limit Exceeded\n\n${rateLimitError.message}\n\nPlease wait before saving again.`);
+      showBanner(`Rate limit: ${rateLimitError.message} Please wait before saving again.`, 'warning');
       return;
     }
     
@@ -639,7 +638,7 @@ async function handleSave() {
     if (response.status === 413) {
       const sizeError = await response.json();
       setStatus('❌ List too large', 'error');
-      alert(`List Size Limit Exceeded\n\n${sizeError.error}\n\nPlease remove some items or shorten notes.`);
+      showBanner(`List too large: ${sizeError.error}`, 'error');
       btn.disabled = false;
       btn.textContent = originalText;
       return;
@@ -690,7 +689,6 @@ async function handleDelete() {
     const response = await fetch(`/api/list/${slug}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`Failed to delete: ${response.statusText}`);
     removeFromRecent(slug);
-    alert('List deleted');
     window.location.href = '/';
   } catch (error) {
     console.error('Delete error:', error);
@@ -788,6 +786,18 @@ async function handleRetry() {
     currentList.version = window.conflictServerList.version;
     await handleSave();
   }
+}
+
+function showBanner(message, type = 'error') {
+  const banner = document.getElementById('errorBanner');
+  const msg = document.getElementById('errorBannerMessage');
+  banner.className = `error-banner ${type}`;
+  msg.textContent = message;
+  banner.style.display = 'flex';
+}
+
+function hideBanner() {
+  document.getElementById('errorBanner').style.display = 'none';
 }
 
 function setStatus(message, type = '') {
@@ -896,7 +906,7 @@ function compareListVersions(localList, serverList) {
  */
 function handleExportCsv() {
   if (!currentList || !currentList.items.length) {
-    alert('No items to export');
+    setStatus('No items to export', 'error');
     return;
   }
   
@@ -950,7 +960,7 @@ function handleExportCsv() {
  */
 function handleExportJson() {
   if (!currentList) {
-    alert('No list to export');
+    setStatus('No list to export', 'error');
     return;
   }
   
@@ -990,7 +1000,7 @@ async function handleImportFile(e) {
     }
   } catch (error) {
     console.error('Import error:', error);
-    alert(`Import failed: ${error.message}`);
+    showBanner(`Import failed: ${error.message}`, 'error');
   }
 }
 
@@ -1082,7 +1092,6 @@ async function importFromCsv(csvText) {
   
   const message = `📥 Imported: ${importedCount} new items, ${updatedCount} updated`;
   setStatus(message, 'success');
-  alert(message);
   
   // Auto-save after import
   triggerAutoSave();
@@ -1149,9 +1158,8 @@ async function importFromJson(jsonText) {
     importList.scale.min !== currentList.scale.min ||
     importList.scale.max !== currentList.scale.max
   )) {
-    if (confirm(`Update scale from ${currentList.scale.min}-${currentList.scale.max} to ${importList.scale.min}-${importList.scale.max}?`)) {
-      currentList.scale = importList.scale;
-    }
+    currentList.scale = importList.scale;
+    setStatus(`Scale updated to ${importList.scale.min}–${importList.scale.max}`, 'info');
   }
   
   if (importedCount === 0 && mergedCount === 0) {
@@ -1163,8 +1171,7 @@ async function importFromJson(jsonText) {
   
   const message = `📥 Imported: ${importedCount} new items, ${mergedCount} merged`;
   setStatus(message, 'success');
-  alert(message);
-  
+
   // Auto-save after import
   triggerAutoSave();
 }

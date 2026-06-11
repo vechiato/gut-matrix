@@ -1404,3 +1404,169 @@ footer a {
   from { width: 100%; }
   to   { width: 0%; }
 }
+
+/* Error / info banner */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  animation: toastSlideUp 0.2s ease;
+}
+
+.error-banner.error {
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border: 1px solid var(--danger-color);
+}
+
+.error-banner.warning {
+  background: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fbbf24;
+}
+
+@media (prefers-color-scheme: dark) {
+  .error-banner.warning {
+    background: #78350f;
+    color: #fbbf24;
+    border-color: #92400e;
+  }
+}
+
+.error-banner-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+  padding: 0.2rem 0.5rem;
+  margin-left: auto;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.error-banner-close:hover {
+  opacity: 1;
+}
+
+/* Inline form error (landing page) */
+.form-error {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Print styles */
+@media print {
+  /* Hide everything interactive */
+  .header-right,
+  .editor-toolbar,
+  .col-actions,
+  .gut-guide,
+  .undo-toast,
+  .error-banner,
+  #notesSection,
+  #conflictModal,
+  footer {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .editor-header {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5rem;
+  }
+
+  .editable-title {
+    border: none;
+    padding: 0;
+    font-size: 1.5rem;
+  }
+
+  .editor-main {
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    background: white !important;
+  }
+
+  .items-container {
+    overflow: visible;
+  }
+
+  /* Force average columns visible */
+  .items-table .avg-col {
+    display: table-cell !important;
+  }
+
+  /* Clean up table */
+  .items-table th,
+  .items-table td {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .items-table .col-group-header,
+  .items-table .col-group-header.avg-group {
+    background: #f0f0f0 !important;
+    color: black !important;
+  }
+
+  .items-table .avg-col {
+    background: #f9f9f9 !important;
+  }
+
+  /* Show only selected chip value as plain text */
+  .chip:not(.selected) {
+    display: none !important;
+  }
+
+  .chip.selected {
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: none !important;
+    color: black !important;
+    border: none !important;
+    font-size: 0.9rem;
+  }
+
+  .score-chips {
+    justify-content: center;
+    gap: 0;
+    padding: 0.25rem;
+  }
+
+  /* Textarea shows as plain text */
+  .items-table textarea {
+    border: none;
+    resize: none;
+    background: transparent;
+    font-size: 0.85rem;
+    min-height: unset;
+    height: auto !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+  }
+}
