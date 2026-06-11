@@ -4,498 +4,318 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-orange)](https://pages.cloudflare.com/)
 
-A collaborative prioritization tool implementing the GUT Method (Gravity × Urgency × Tendency). Built on Cloudflare Pages with KV storage, enabling serverless multi-user collaboration without authentication.
+A collaborative prioritization tool implementing the GUT Method (Gravity × Urgency × Tendency). Built on Cloudflare Pages with KV storage — no authentication required, share a URL to collaborate.
 
 ## Features
 
-- GUT Method scoring: Objective prioritization using G × U × T formula (range 1-125)
-- Multi-user collaboration with independent scoring and automatic averaging
-- URL-based sharing without authentication requirements
-- Data persistence in Cloudflare KV (30-day retention)
-- CSV and JSON export/import functionality
-- Responsive design with mobile support
-- Edge network deployment with sub-100ms response times
-- Automatic synchronization every 10 seconds with version control
-- Configurable save behavior (manual/automatic)
-- Rate limiting to protect free tier usage
-- Serverless architecture with zero backend management
+- **GUT scoring** — objective prioritization using G × U × T (range 1–125)
+- **Multi-user collaboration** — independent scoring per user, automatic average calculation
+- **URL-based sharing** — no accounts, no login
+- **Score chip picker** — click to select G/U/T values (1 to configured max); no keyboard entry required
+- **Conflict resolution** — optimistic concurrency with version control and merge UI
+- **Undo deletions** — 5-second undo toast after deleting an item
+- **Auto-sync** — polls for changes every 10 seconds; skips if you have unsaved work
+- **Export/Import** — CSV and JSON, client-side (no server round-trip)
+- **Dark mode** — follows system appearance
+- **Responsive** — mobile-first; average score columns hidden on small screens with a toggle
+- **Accessible** — ARIA live regions, labeled inputs, keyboard-trapped modals, screen-reader-friendly
+- **Rate limiting** — protects Cloudflare free tier KV quotas
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
-
 # Visit http://localhost:8788
 ```
 
-For production deployment, see [Deployment](#deployment) section.
+For production deployment see [Deployment](#deployment).
 
 ## GUT Method
 
-The GUT Method is a prioritization framework that scores items across three dimensions (1-5 scale):
+Scores each item on three dimensions (default scale 1–5, max configurable up to 10):
 
-| Factor | Definition | Scale |
-|--------|-----------|-------|
-| **Gravity** | Severity or impact of the issue | 1 = Minimal, 5 = Critical |
-| **Urgency** | Time sensitivity | 1 = Can wait, 5 = Immediate |
-| **Tendency** | Progression if unaddressed | 1 = Stable, 5 = Rapidly worsening |
+| Factor | Question | 1 | 5 |
+|--------|----------|---|---|
+| **Gravity** | How serious is the impact? | Minimal | Critical |
+| **Urgency** | How time-sensitive is it? | Can wait | Immediate |
+| **Tendency** | Will it worsen if ignored? | Stable | Rapidly deteriorates |
 
-**Priority Score = G × U × T** (range: 1-125)
+**Priority Score = G × U × T** (range 1–125 on the default 1–5 scale)
 
-Team members score items independently. The system calculates individual and average scores automatically.
+Each team member scores independently. Averages are shown once ≥ 2 users have scored an item.
 
 ## Architecture
 
 ### Stack
-- **Frontend**: Vanilla JavaScript, CSS custom properties
-- **Backend**: Cloudflare Pages Functions (TypeScript)
-- **Storage**: Cloudflare KV
-- **CI/CD**: GitHub Actions
-- **Testing**: Jest (103+ tests)
 
-### Design Principles
-- Zero frontend dependencies for minimal bundle size
-- Mobile-first responsive design (breakpoint: 768px)
-- Semantic HTML with ARIA labels
-- Manual save default to optimize KV write operations
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vanilla JS + CSS custom properties (zero dependencies) |
+| Backend | Cloudflare Pages Functions (TypeScript) |
+| Storage | Cloudflare KV |
+| CI/CD | GitHub Actions |
+| Tests | Jest — 151 tests, ~90% backend coverage |
 
 ### Data Flow
+
 ```
-Client → Rate Limiter → Pages Function → KV Storage → CDN
-   ↑                                                     ↓
-   └──────────── Sync (10s interval) ───────────────────┘
+Client → Rate Limiter → Pages Function → KV Storage
+   ↑                                         ↓
+   └──────── Auto-sync (10s polling) ────────┘
 ```
 
-### Rate Limits
-- 2 saves/min per user
-- 30 saves/hour per user
-- 10 new lists/day per user
-- 10 saves/min per list
-- 100KB max list size
-
-## Project Structure
+### Project Structure
 
 ```
 gut-matrix/
 ├── public/
-│   ├── index.html       # Landing page
-│   ├── matrix.html      # Matrix editor
-│   ├── styles.css       # Stylesheets
-│   ├── app.js           # Home page logic
-│   └── editor.js        # Editor with sync
+│   ├── index.html        # Landing page
+│   ├── matrix.html       # List editor
+│   ├── styles.css        # All styles (CSS variables, dark mode)
+│   ├── app.js            # Landing page logic
+│   └── editor.js         # Editor: scoring, sync, conflict resolution
 ├── functions/
 │   ├── api/
 │   │   ├── list/
-│   │   │   ├── index.ts      # POST /api/list
-│   │   │   └── [slug].ts     # GET/PUT/DELETE /api/list/:slug
+│   │   │   ├── index.ts       # POST /api/list (with rate limiting)
+│   │   │   └── [slug].ts      # GET/PUT/DELETE /api/list/:slug
 │   │   └── matrix/
-│   │       ├── index.ts      # GET /api/matrix
-│   │       └── [slug].ts     # GET /api/matrix/:slug
+│   │       ├── index.ts       # POST /api/matrix (legacy, no rate limiting)
+│   │       └── [slug].ts      # GET/PUT/DELETE /api/matrix/:slug
 │   ├── rateLimit.ts
 │   ├── utils.ts
-│   └── __tests__/
-├── .github/workflows/deploy.yml
-└── wrangler.toml        # Not in git
+│   ├── types.ts
+│   └── __tests__/             # 5 test files, 151 tests
+├── wrangler.toml.example
+└── jest.config.js
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20.x+
-- Cloudflare account
+
+- Node.js 20+
+- Cloudflare account (free tier is sufficient)
 
 ### Local Development
 
-1. **Installation**
-   ```bash
-   git clone https://github.com/vechiato/gut-matrix.git
-   cd gut-matrix
-   npm install
-   ```
+```bash
+# 1. Clone and install
+git clone https://github.com/vechiato/gut-matrix.git
+cd gut-matrix
+npm install
 
-2. **Configure Cloudflare KV**
-   ```bash
-   # Copy example config
-   cp wrangler.toml.example wrangler.toml
-   
-   # Create KV namespace
-   npx wrangler kv:namespace create GUT_LISTS
-   
-   # Update wrangler.toml with the returned ID
-   ```
+# 2. Create KV namespace
+npx wrangler kv:namespace create MATRIX_STORE
 
-3. **Start Development Server**
-   ```bash
-   npm run dev
-   # Visit http://localhost:8788
-   ```
+# 3. Configure wrangler.toml
+cp wrangler.toml.example wrangler.toml
+# Edit wrangler.toml — uncomment the [[kv_namespaces]] block and set your KV ID
 
-4. **Run Tests**
-   ```bash
-   npm test              # Run all tests
-   npm run test:watch    # Watch mode
-   npm run test:coverage # Generate coverage report
-   ```
+# 4. Start dev server
+npm run dev
+# Visit http://localhost:8788
+```
 
-### Environment Setup
+### Running Tests
 
-The `wrangler.toml` file contains sensitive configuration and is **not committed to git**. Use `wrangler.toml.example` as a template:
-
-```toml
-name = "gut-matrix"
-compatibility_date = "2024-01-01"
-pages_build_output_dir = "public"
-
-[[kv_namespaces]]
-binding = "GUT_LISTS"
-id = "YOUR_KV_NAMESPACE_ID"  # Get from: npx wrangler kv:namespace create GUT_LISTS
+```bash
+npm test                # Run all tests
+npm run test:watch      # Watch mode
+npm run test:coverage   # Coverage report (~90% backend coverage)
 ```
 
 ## Deployment
 
-### GitHub Actions (Recommended)
+### GitHub Actions (recommended)
 
-1. **Configure Secrets**
-   
-   In repository settings, add:
-   - `CLOUDFLARE_API_TOKEN`: Generate at dash.cloudflare.com/profile/api-tokens
-   - `CLOUDFLARE_ACCOUNT_ID`: Found in Cloudflare Dashboard
+1. Add repository secrets:
+   - `CLOUDFLARE_API_TOKEN` — from [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
+   - `CLOUDFLARE_ACCOUNT_ID` — from your Cloudflare dashboard
 
-2. **Push to Deploy**
-   ```bash
-   git push origin main
-   ```
-   
-   Workflow runs tests and deploys automatically.
-
-See [GITHUB_SETUP.md](./GITHUB_SETUP.md) for details.
+2. Push to `main` — tests run then deploy automatically.
 
 ### Manual Deploy
 
 ```bash
-# Login to Cloudflare
 npx wrangler login
-
-# Deploy
-npx wrangler pages deploy public --project-name=gut-vibe
+npx wrangler pages deploy public --project-name=gut-matrix
 ```
 
 ### Cloudflare Dashboard
 
-1. Navigate to Workers & Pages → Create Application → Pages
-2. Connect GitHub repository
-3. Configure:
-   - Build output directory: `public`
-   - KV namespace binding: `GUT_LISTS`
-4. Deploy
+1. Workers & Pages → Create → Pages → Connect to Git
+2. Build output directory: `public`
+3. Settings → Functions → KV namespace bindings → add `MATRIX_STORE`
 
 ## API Reference
 
-### Create New List
+All endpoints return JSON. CORS headers are set on every response.
+
+### POST /api/list — Create list
+
 ```http
 POST /api/list
 Content-Type: application/json
+X-User-Id: <uuid>
 
 {
   "title": "Sprint Planning",
+  "scale": { "min": 1, "max": 5 }
+}
+```
+
+**201 Created:**
+```json
+{ "slug": "sprint-planning-a1b2c3d4" }
+```
+
+### GET /api/list/:slug — Fetch list
+
+```http
+GET /api/list/sprint-planning-a1b2c3d4
+X-Current-Version: 3
+```
+
+Returns **304 Not Modified** if the client already has the latest version, otherwise **200** with the full list:
+
+```json
+{
+  "title": "Sprint Planning",
+  "scale": { "min": 1, "max": 5 },
+  "version": 4,
+  "updatedAt": "2025-06-11T10:30:00Z",
   "items": [
     {
-      "id": "1",
-      "description": "Fix login bug",
-      "gravity": 5,
-      "urgency": 5,
-      "tendency": 4
+      "id": "550e8400-...",
+      "label": "Fix login bug",
+      "scores": {
+        "user-uuid-1": { "g": 5, "u": 5, "t": 4, "score": 100 }
+      },
+      "avgScore": { "g": 4.5, "u": 4.5, "t": 3.5, "score": 70.9, "count": 2 },
+      "notes": "Affects checkout flow",
+      "url": "https://github.com/org/repo/issues/42"
     }
   ]
 }
 ```
 
-**Response (201):**
-```json
-{
-  "slug": "abc123xyz",
-  "url": "/matrix.html?slug=abc123xyz"
-}
-```
+### PUT /api/list/:slug — Update list
 
-### Get List
 ```http
-GET /api/list/:slug
-```
+PUT /api/list/sprint-planning-a1b2c3d4
+Content-Type: application/json
+X-User-Id: <uuid>
 
-**Response (200):**
-```json
 {
   "title": "Sprint Planning",
+  "version": 4,
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
   "items": [
-    {
-      "id": "1",
-      "description": "Fix login bug",
-      "scores": {
-        "user-uuid-1": {
-          "gravity": 5,
-          "urgency": 5,
-          "tendency": 4,
-          "score": 100
-        }
-      },
-      "avgScore": {
-        "gravity": 5,
-        "urgency": 5,
-        "tendency": 4,
-        "score": 100,
-        "count": 1
-      }
-    }
-  ],
-  "createdAt": "2024-01-15T10:00:00Z",
-  "updatedAt": "2024-01-15T10:30:00Z",
-  "version": 5
+    { "id": "...", "label": "Fix login bug", "g": 5, "u": 5, "t": 4 }
+  ]
 }
 ```
 
-### Update List
-```http
-PUT /api/list/:slug
-Content-Type: application/json
-If-Match: 5  # Required for version control
+- `version` is required for conflict detection — omit to skip the check
+- `userId` causes the server to merge only your scores, preserving other users' scores
+- Without `userId`, the items array replaces the stored items entirely
 
-{
-  "title": "Updated Title",
-  "items": [...],
-  "version": 5
-}
-```
+**200 OK** — returns the updated list object.
 
-**Response (200):**
+**409 Conflict** — someone else saved between your last fetch and this save:
 ```json
-{
-  "success": true,
-  "version": 6
-}
+{ "conflict": true, "server": { ...serverList } }
 ```
 
-**Error (409 Conflict):**
-```json
-{
-  "error": "Version conflict",
-  "currentVersion": 7,
-  "yourVersion": 5
-}
-```
+**Error codes:**
 
-### Delete List
+| Status | Cause |
+|--------|-------|
+| 400 | Invalid userId format, scale min ≥ max, or too many items |
+| 404 | List not found |
+| 409 | Version conflict |
+| 413 | List exceeds 100 KB size limit |
+| 429 | Rate limit exceeded |
+
+### DELETE /api/list/:slug — Delete list
+
 ```http
-DELETE /api/list/:slug
+DELETE /api/list/sprint-planning-a1b2c3d4
 ```
 
-**Response (200):**
-```json
-{
-  "success": true
-}
-```
+**204 No Content**
 
-### Export List (CSV)
-```http
-GET /api/list/:slug?format=csv
-```
+### Legacy endpoints
 
-**Response:**
-```csv
-Description,Gravity,Urgency,Tendency,Score,Rank
-Fix login bug,5,5,4,100,1
-Update docs,3,2,2,12,2
-```
+`/api/matrix` and `/api/matrix/:slug` mirror the list endpoints without rate limiting. Kept for backward compatibility.
 
-### Export List (JSON)
-```http
-GET /api/list/:slug?format=json
-```
+## Configuration
 
-**Response:**
-```json
-{
-  "title": "Sprint Planning",
-  "items": [...],
-  "exportedAt": "2024-01-15T10:30:00Z"
-}
-```
+Environment variables (set in `wrangler.toml` or Cloudflare Dashboard):
 
-### Import List
-```http
-POST /api/list/import
-Content-Type: application/json
-
-{
-  "format": "json",
-  "data": {
-    "title": "Imported List",
-    "items": [...]
-  }
-}
-```
-
-**Response (201):**
-```json
-{
-  "slug": "abc123xyz",
-  "url": "/matrix.html?slug=abc123xyz"
-}
-```
-
-## Implementation Details
-
-### Data Flow
-
-1. **Create**: POST `/api/list` → Returns slug → Navigate to editor
-2. **Score**: Adjust G/U/T → Store locally → Save → PUT `/api/list/:slug`
-3. **Sync**: Poll every 10s → Fetch updates → Merge scores
-4. **Collaborate**: Server calculates averages from all user scores
-5. **Share**: Distribute URL for access
-
-### User Identification
-
-- Browser localStorage stores anonymous UUID (`gut_user_id`)
-- No authentication required
-- User's own scores are editable
-- Other users' scores visible as aggregated averages
-- Averages displayed when ≥2 users have scored
-
-### Version Control
-
-- Monotonically increasing `version` number per list
-- Client sends `If-Match` header with expected version
-- Server validates version before update
-- Returns `409 Conflict` on mismatch
-- Prevents concurrent update conflicts
-
-### Save Behavior
-
-**Manual (Default)**:
-- No automatic persistence
-- Explicit save action required
-- Visual indicator for unsaved state
-- Optimizes KV write operations
-
-**Auto-save (Optional)**:
-- Configurable via toggle
-- 5-second debounce after last edit
-- Preference stored in localStorage
-
-### Rate Limits
-
-| Limit | Value | Purpose |
-|-------|-------|---------|
-| Saves per minute (user) | 2 | Prevents rapid clicking |
-| Saves per hour (user) | 30 | Daily usage spread |
-| New lists per day (user) | 10 | Prevents spam |
-| Saves per minute (list) | 10 | Prevents edit conflicts |
-| Max list size | 100KB | Storage optimization |
-
-Data retention: 30 days of inactivity.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MAX_ITEMS` | `500` | Max items per list |
+| `MIN_SCALE` / `MAX_SCALE` | `1` / `10` | Scale min is always 1; max can be 3–10 |
+| `LIST_MAX_SIZE_KB` | `100` | Max serialized list size |
+| `LIST_TTL_DAYS` | `30` | KV expiry after last write |
+| `ENABLE_RATE_LIMITING` | `true` | Toggle rate limiting |
+| `MAX_SAVES_PER_USER_PER_MINUTE` | `2` | Per-user save rate |
+| `MAX_SAVES_PER_USER_PER_HOUR` | `30` | Per-user hourly cap |
+| `MAX_LISTS_PER_USER_PER_DAY` | `10` | Per-user daily creation cap |
+| `MAX_SAVES_PER_LIST_PER_MINUTE` | `10` | Per-list write rate |
 
 ## Security & Privacy
 
-### Model
-
-Anonymous collaborative system:
-
-- URL-based access without authentication
-- 8-character random slugs (4.3B possible combinations)
+- URL-based access — share only with intended collaborators
+- 8-character random slugs (~4.3 billion combinations)
 - No global list enumeration endpoint
-- Browser-generated anonymous UUIDs for scoring
-- Not suitable for confidential data
+- Anonymous UUIDs stored in `localStorage` (never sent to a server without user action)
+- Not suitable for confidential data — treat lists as semi-public
 
-### Recommendations
+## Cloudflare Free Tier Capacity
 
-- Share URLs only with intended users
-- Delete lists after use via editor interface
-- Avoid sensitive information in descriptions
-- Use generic/temporary list names
+| Resource | Free limit | Typical usage |
+|----------|-----------|---------------|
+| KV reads | 100,000/day | ~5 reads per page load |
+| KV writes | 1,000/day | 1 write per save |
+| Function invocations | 100,000/day | 1 per API call |
+
+Example: 50 active users × 10 saves/day = 500 writes/day — well within the free tier.
 
 ## Troubleshooting
 
-### Cannot find module errors
+**Local KV not persisting**
 ```bash
-npm install  # Reinstall dependencies
+# Make sure you're using the --kv flag
+npm run dev   # already configured in package.json
 ```
 
-### Local KV not working
+**TypeScript errors**
 ```bash
-# Use correct dev command
-npx wrangler pages dev public --kv GUT_LISTS=your-namespace-id
+npm run types   # type-check without building
 ```
 
-### TypeScript errors during build
-```bash
-npm install @cloudflare/workers-types  # Install type definitions
-```
+**409 conflict errors during collaboration**
+- The editor shows a merge dialog — choose "Use Their Version" or "Keep My Changes"
+- Auto-sync (10s) resolves most conflicts before you save
 
-### 404 on API endpoints
-Check:
-- Functions exist in `functions/api/list/` directory
-- Filenames: `index.ts` and `[slug].ts`
-- Running `npm run dev` or deployed correctly
-
-### KV data not persisting in production
-Verify:
-- KV binding configured in Cloudflare Dashboard (Settings → Functions)
-- Binding name is `GUT_LISTS` (matches wrangler.toml)
-- KV namespace exists with correct ID
-
-### Rate limit errors
-If you see "Rate limit exceeded":
-- Wait 1 minute before saving again
-- Disable auto-save to reduce writes
-- Delete old lists to free up quota
-
-### Version conflicts (409 errors)
-When collaborative editing:
-- Auto-sync resolves most conflicts automatically
-- Reload to fetch latest version if conflicts persist
-- Reapply changes and save
-
-## Performance & Limits
-
-| Metric | Value | Notes |
-|--------|-------|-------|
-| Max items per list | 500 | Configurable in code |
-| Scale range | 1-5 | Fixed in GUT methodology |
-| Description length | 200 chars | Per item |
-| Max list size | 100KB | Rate limiter enforced |
-| Auto-sync interval | 10 seconds | Configurable in editor |
-| Response time | <100ms | Global edge network |
-
-### Cloudflare Free Tier Capacity
-- KV Reads: 100,000/day
-- KV Writes: 1,000/day
-- Functions: 100,000 requests/day
-- Data transfer: 100GB/month
-
-Example usage: 50 lists × 20 items × 5 users ≈ 250 writes/day
+**Rate limit 429**
+- Wait 1 minute, then save again
+- Enable manual save (default) rather than auto-save to reduce writes
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE)
+MIT — see [LICENSE](./LICENSE)
 
 ## Contributing
 
-1. Fork repository
-2. Create feature branch
-3. Implement changes with tests
-4. Submit pull request
-
-Run `npm test` before submitting.
-
-## Support
-
-- Issues: [GitHub Issues](https://github.com/vechiato/gut-matrix/issues)
+1. Fork and create a feature branch
+2. Add or update tests (`npm test` must pass)
+3. Submit a pull request
 
 ---
 
-Built on Cloudflare's edge network
+Built on [Cloudflare Pages](https://pages.cloudflare.com/)

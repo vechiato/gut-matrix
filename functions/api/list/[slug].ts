@@ -90,7 +90,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
     // Get env limits
     const maxItems = Number(env.MAX_ITEMS || 500);
     const envMin = Number(env.MIN_SCALE || 1);
-    const envMax = Number(env.MAX_SCALE || 5);
+    const envMax = Number(env.MAX_SCALE || 10);
     
     // Validate
     const validation = validateList(incoming, maxItems);

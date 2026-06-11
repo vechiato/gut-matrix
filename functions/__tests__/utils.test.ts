@@ -72,40 +72,40 @@ describe('sanitizeTitle', () => {
 });
 
 describe('normalizeScale', () => {
-  test('uses provided scale', () => {
+  test('min is always 1 regardless of input', () => {
     const scale = normalizeScale({ min: 1, max: 5 }, 1, 10);
     expect(scale).toEqual({ min: 1, max: 5 });
   });
 
-  test('clamps min to env limits', () => {
-    const scale = normalizeScale({ min: 0, max: 5 }, 1, 10);
+  test('min is always 1 even when a different min is provided', () => {
+    const scale = normalizeScale({ min: 3, max: 5 }, 1, 10);
     expect(scale.min).toBe(1);
   });
 
-  test('clamps max to env limits', () => {
+  test('clamps max to envMax', () => {
     const scale = normalizeScale({ min: 1, max: 20 }, 1, 10);
     expect(scale.max).toBe(10);
   });
 
-  test('ensures min < max', () => {
-    const scale = normalizeScale({ min: 5, max: 3 }, 1, 10);
-    expect(scale.min).toBeLessThan(scale.max);
+  test('clamps max to minimum of 3', () => {
+    const scale = normalizeScale({ max: 2 }, 1, 10);
+    expect(scale.max).toBe(3);
   });
 
-  test('uses defaults for empty object', () => {
+  test('uses default max of 5 when not provided', () => {
+    const scale = normalizeScale({}, 1, 10);
+    expect(scale).toEqual({ min: 1, max: 5 });
+  });
+
+  test('uses defaults for empty object matching envMax', () => {
     const scale = normalizeScale({}, 1, 5);
     expect(scale).toEqual({ min: 1, max: 5 });
   });
 
-  test('handles partial scale', () => {
-    // When min is provided, it's clamped to 1 (envMin)
-    const scale1 = normalizeScale({ min: 2 }, 1, 5);
-    expect(scale1.min).toBe(1); // Clamped to envMin
-    expect(scale1.max).toBe(5); // Uses default 5
-
-    const scale2 = normalizeScale({ max: 10 }, 1, 10);
-    expect(scale2.min).toBe(1); // Uses default 1
-    expect(scale2.max).toBe(10);
+  test('handles partial scale (max only)', () => {
+    const scale = normalizeScale({ max: 10 }, 1, 10);
+    expect(scale.min).toBe(1);
+    expect(scale.max).toBe(10);
   });
 });
 

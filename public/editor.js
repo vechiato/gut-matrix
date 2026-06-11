@@ -10,8 +10,13 @@ let currentNotesItemId = null;
 let refreshInterval = null;
 let userId = null;
 let autoSaveTimeout = null;
-let autoSaveEnabled = false; // Default: manual save only
+let autoSaveEnabled = false;
 let lastSaveTime = null;
+let conflictModalFocusTrap = null;
+let conflictModalPreviousFocus = null;
+let undoItem = null;
+let undoIndex = null;
+let undoTimeout = null;
 
 // User ID management
 function getUserId() {
@@ -44,9 +49,13 @@ function setAutoSaveSetting(enabled) {
 
 function updateAutoSaveIndicator() {
   const indicator = document.getElementById('autoSaveIndicator');
+  const toggle = document.getElementById('autoSaveToggle');
   if (indicator) {
     indicator.textContent = autoSaveEnabled ? 'Auto-save: ON' : 'Auto-save: OFF';
     indicator.className = autoSaveEnabled ? 'auto-save-on' : 'auto-save-off';
+  }
+  if (toggle) {
+    toggle.setAttribute('aria-pressed', autoSaveEnabled ? 'true' : 'false');
   }
 }
 
@@ -118,6 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
     setAutoSaveSetting(!autoSaveEnabled);
   });
   
+  // Avg toggle (mobile)
+  document.getElementById('avgToggleBtn').addEventListener('click', handleAvgToggle);
+
+  // Undo toast
+  document.getElementById('undoToastBtn').addEventListener('click', handleUndo);
+
   // Export/Import handlers
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
   document.getElementById('exportJsonBtn').addEventListener('click', handleExportJson);
@@ -234,7 +249,13 @@ function renderList() {
   const tbody = document.getElementById('itemsBody');
   
   if (currentList.items.length === 0) {
-    tbody.innerHTML = '<tr class="empty-state-row"><td colspan="11">No items yet. Click "+ Add Item" to get started!</td></tr>';
+    tbody.innerHTML = `<tr class="empty-state-row"><td colspan="11">
+      <div class="editor-empty-state">
+        <div class="editor-empty-icon">📋</div>
+        <p class="editor-empty-title">No items yet</p>
+        <p class="editor-empty-text">Click <strong>+ Add Item</strong> above to start scoring</p>
+      </div>
+    </td></tr>`;
     isDirty = false;
     updateSaveStatus();
     return;
@@ -259,25 +280,29 @@ function renderList() {
     const avgTotal = hasAvg ? avg.score.toFixed(1) : '-';
     const count = hasAvg ? avg.count : '-';
     
+    const itemLabel = escapeHtml(item.label) || 'this item';
+    const notePreview = item.notes
+      ? escapeAttr(item.notes.length > 80 ? item.notes.substring(0, 80) + '…' : item.notes)
+      : '';
     return `
       <tr data-id="${item.id}">
         <td class="col-label">
-          <textarea data-field="label" class="item-input input-label" maxlength="400" placeholder="Item description" rows="1">${escapeHtml(item.label)}</textarea>
-          ${item.notes ? '<span class="has-notes" title="Has notes">📝</span>' : ''}
-          ${item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" title="Open link">🔗</a>' : ''}
+          <textarea data-field="label" class="item-input input-label" maxlength="400" placeholder="Item description" rows="1" aria-label="Item description">${escapeHtml(item.label)}</textarea>
+          ${item.notes ? `<span class="has-notes" aria-hidden="true" title="${notePreview}">📝</span>` : ''}
+          ${item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" aria-label="Open reference link"><span aria-hidden="true">🔗</span></a>' : ''}
         </td>
-        <td class="col-g"><input type="number" value="${userG}" data-field="g" class="item-input input-number" min="${currentList.scale.min}" max="${currentList.scale.max}" placeholder="${currentList.scale.min}"></td>
-        <td class="col-u"><input type="number" value="${userU}" data-field="u" class="item-input input-number" min="${currentList.scale.min}" max="${currentList.scale.max}" placeholder="${currentList.scale.min}"></td>
-        <td class="col-t"><input type="number" value="${userT}" data-field="t" class="item-input input-number" min="${currentList.scale.min}" max="${currentList.scale.max}" placeholder="${currentList.scale.min}"></td>
-        <td class="col-score"><strong class="score-display">${userTotal}</strong></td>
+        <td class="col-g">${renderScoreChips('g', userG, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
+        <td class="col-u">${renderScoreChips('u', userU, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
+        <td class="col-t">${renderScoreChips('t', userT, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
+        <td class="col-score"><strong class="score-display" aria-label="Your score">${userTotal}</strong></td>
         <td class="col-g avg-col"><span class="avg-value">${avgG}</span></td>
         <td class="col-u avg-col"><span class="avg-value">${avgU}</span></td>
         <td class="col-t avg-col"><span class="avg-value">${avgT}</span></td>
         <td class="col-score avg-col"><strong class="avg-value">${avgTotal}</strong></td>
         <td class="col-count avg-col"><span class="avg-value">${count}</span></td>
         <td class="col-actions">
-          <button class="btn-icon btn-notes" data-id="${item.id}" title="Add/edit notes">📝</button>
-          <button class="btn-icon btn-delete" data-id="${item.id}" title="Delete item">🗑️</button>
+          <button class="btn-icon btn-notes" data-id="${item.id}" aria-label="Edit notes for ${itemLabel}"><span aria-hidden="true">📝</span></button>
+          <button class="btn-icon btn-delete" data-id="${item.id}" aria-label="Delete ${itemLabel}"><span aria-hidden="true">🗑️</span></button>
         </td>
       </tr>
     `;
@@ -285,14 +310,14 @@ function renderList() {
   
   tbody.querySelectorAll('.item-input').forEach(input => {
     input.addEventListener('input', handleItemChange);
-    // Auto-resize textareas
     if (input.tagName === 'TEXTAREA') {
       input.addEventListener('input', autoResizeTextarea);
-      autoResizeTextarea.call(input); // Initial resize
+      autoResizeTextarea.call(input);
     }
   });
-  tbody.querySelectorAll('.btn-notes').forEach(btn => btn.addEventListener('click', (e) => showNotes(e.target.dataset.id)));
-  tbody.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', (e) => handleDeleteItem(e.target.dataset.id)));
+  tbody.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', handleChipClick));
+  tbody.querySelectorAll('.btn-notes').forEach(btn => btn.addEventListener('click', (e) => showNotes(e.currentTarget.dataset.id)));
+  tbody.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', (e) => handleDeleteItem(e.currentTarget.dataset.id)));
   
   if (currentList.updatedAt) {
     document.getElementById('lastSaved').textContent = new Date(currentList.updatedAt).toLocaleString();
@@ -402,10 +427,105 @@ function handleAddItem() {
 
 function handleDeleteItem(id) {
   if (!currentList) return;
-  if (!confirm('Delete this item?')) return;
-  currentList.items = currentList.items.filter(item => item.id !== id);
+  const index = currentList.items.findIndex(item => item.id === id);
+  if (index === -1) return;
+  const deleted = currentList.items[index];
+  currentList.items.splice(index, 1);
   renderList();
   isDirty = true;
+  showUndoToast(deleted, index);
+}
+
+function showUndoToast(item, index) {
+  if (undoTimeout) clearTimeout(undoTimeout);
+  undoItem = item;
+  undoIndex = index;
+
+  const toast = document.getElementById('undoToast');
+  const msg = document.getElementById('undoToastMessage');
+  const progress = document.getElementById('undoToastProgress');
+  const label = item.label ? `"${item.label.substring(0, 40)}"` : 'Item';
+  msg.textContent = `${label} deleted`;
+
+  // Restart progress bar animation
+  progress.style.animation = 'none';
+  progress.offsetHeight; // force reflow
+  progress.style.animation = '';
+
+  toast.style.display = 'flex';
+
+  undoTimeout = setTimeout(() => {
+    hideUndoToast();
+    undoItem = null;
+    undoIndex = null;
+  }, 5000);
+}
+
+function hideUndoToast() {
+  document.getElementById('undoToast').style.display = 'none';
+  if (undoTimeout) { clearTimeout(undoTimeout); undoTimeout = null; }
+}
+
+function handleUndo() {
+  if (undoItem === null || undoIndex === null) return;
+  const insertAt = Math.min(undoIndex, currentList.items.length);
+  currentList.items.splice(insertAt, 0, undoItem);
+  undoItem = null;
+  undoIndex = null;
+  hideUndoToast();
+  renderList();
+  isDirty = true;
+  updateSaveStatus();
+}
+
+function handleAvgToggle() {
+  const table = document.getElementById('itemsTable');
+  const btn = document.getElementById('avgToggleBtn');
+  const showing = table.classList.toggle('show-averages');
+  btn.setAttribute('aria-pressed', showing ? 'true' : 'false');
+  btn.setAttribute('aria-label', showing ? 'Hide average scores' : 'Show average scores');
+  btn.textContent = showing ? 'Avg ▲' : 'Avg ▼';
+}
+
+function renderScoreChips(field, currentValue, min, max, itemLabel) {
+  const fieldName = field === 'g' ? 'Gravity' : field === 'u' ? 'Urgency' : 'Tendency';
+  let chips = '';
+  for (let v = min; v <= max; v++) {
+    const selected = currentValue !== '' && parseInt(currentValue) === v;
+    chips += `<button type="button" class="chip${selected ? ' selected' : ''}" data-field="${field}" data-value="${v}" aria-pressed="${selected ? 'true' : 'false'}" aria-label="${fieldName} ${v} for ${itemLabel}">${v}</button>`;
+  }
+  return `<div class="score-chips" role="group" aria-label="${fieldName}">${chips}</div>`;
+}
+
+function handleChipClick(e) {
+  const chip = e.currentTarget;
+  const row = chip.closest('tr');
+  const id = row.dataset.id;
+  const field = chip.dataset.field;
+  const value = parseInt(chip.dataset.value);
+  const item = currentList.items.find(i => i.id === id);
+  if (!item) return;
+
+  const uid = getUserId();
+  if (!item.scores) item.scores = {};
+  if (!item.scores[uid]) {
+    item.scores[uid] = { g: currentList.scale.min, u: currentList.scale.min, t: currentList.scale.min, score: Math.pow(currentList.scale.min, 3) };
+  }
+
+  item.scores[uid][field] = value;
+  item.scores[uid].score = item.scores[uid].g * item.scores[uid].u * item.scores[uid].t;
+
+  chip.closest('.score-chips').querySelectorAll('.chip').forEach(c => {
+    const sel = c === chip;
+    c.classList.toggle('selected', sel);
+    c.setAttribute('aria-pressed', sel ? 'true' : 'false');
+  });
+
+  row.querySelector('.score-display').textContent = item.scores[uid].score;
+
+  isDirty = true;
+  updateSaveStatus();
+  triggerAutoSave();
 }
 
 function handleSort() {
@@ -584,13 +704,32 @@ function handleTitleChange() {
 }
 
 function showConflictModal(serverList) {
-  document.getElementById('conflictModal').style.display = 'flex';
+  const modal = document.getElementById('conflictModal');
+  modal.style.display = 'flex';
   window.conflictServerList = serverList;
+  conflictModalPreviousFocus = document.activeElement;
   
   // Show what changed
   const changes = compareListVersions(currentList, serverList);
   const detailsEl = document.getElementById('conflictDetails');
   
+  // Focus first action button and install keyboard trap
+  const firstBtn = document.getElementById('takeServerBtn');
+  requestAnimationFrame(() => firstBtn.focus());
+  conflictModalFocusTrap = (e) => {
+    if (e.key === 'Escape') { hideConflictModal(); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(modal.querySelectorAll('button:not([disabled])'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  };
+  document.addEventListener('keydown', conflictModalFocusTrap);
+
   if (changes.length === 0) {
     detailsEl.innerHTML = '<p class="info-text">No conflicting changes detected.</p>';
   } else {
@@ -624,6 +763,14 @@ function showConflictModal(serverList) {
 function hideConflictModal() {
   document.getElementById('conflictModal').style.display = 'none';
   window.conflictServerList = null;
+  if (conflictModalFocusTrap) {
+    document.removeEventListener('keydown', conflictModalFocusTrap);
+    conflictModalFocusTrap = null;
+  }
+  if (conflictModalPreviousFocus) {
+    conflictModalPreviousFocus.focus();
+    conflictModalPreviousFocus = null;
+  }
 }
 
 function handleTakeServer() {
@@ -682,6 +829,14 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function escapeAttr(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function compareListVersions(localList, serverList) {
