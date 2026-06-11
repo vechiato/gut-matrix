@@ -67,7 +67,7 @@ async function handleCreate(e) {
     localStorage.setItem(`gut_owner_${slug}`, ownerToken);
 
     addToRecent({ slug, title: title || 'Untitled List', scaleMin, scaleMax, timestamp: Date.now() });
-    window.location.href = `/matrix.html?slug=${slug}`;
+    window.location.href = `/matrix.html?k=${slug}`;
   } catch (error) {
     console.error(error);
     showFormError('Failed to create list. Please try again.');
