@@ -45,18 +45,11 @@ export function normalizeScale(
   envMin: number,
   envMax: number
 ): Scale {
-  const min = scale?.min !== undefined ? Number(scale.min) : 1;
   const max = scale?.max !== undefined ? Number(scale.max) : 5;
-  
-  const normalizedMin = clamp(min, 1, envMin);
-  const normalizedMax = clamp(max, 2, envMax);
-  
-  // Ensure min < max
-  if (normalizedMin >= normalizedMax) {
-    return { min: 1, max: 5 };
-  }
-  
-  return { min: normalizedMin, max: normalizedMax };
+
+  const normalizedMax = clamp(max, 3, envMax);
+
+  return { min: 1, max: normalizedMax };
 }
 
 /**

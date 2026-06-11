@@ -15,13 +15,13 @@
         <h1 id="listTitle" contenteditable="true" class="editable-title">Untitled List</h1>
       </div>
       <div class="header-right">
-        <span id="saveStatus" class="save-status">✓ Saved</span>
-        <button id="autoSaveToggle" class="btn-secondary btn-small">
+        <span id="saveStatus" class="save-status" aria-live="polite" aria-atomic="true">✓ Saved</span>
+        <button id="autoSaveToggle" class="btn-secondary btn-small" aria-pressed="false">
           <span id="autoSaveIndicator">Auto-save: OFF</span>
         </button>
         <button id="saveBtn" class="btn-primary">Save</button>
-        <button id="shareBtn" class="btn-secondary">Share</button>
-        <button id="deleteBtn" class="btn-danger">Delete</button>
+        <button id="shareBtn" class="btn-secondary" aria-label="Copy share link to clipboard">Share</button>
+        <button id="deleteBtn" class="btn-danger" aria-label="Delete this list permanently">Delete</button>
       </div>
     </header>
 
@@ -31,14 +31,15 @@
         <button id="sortBtn" class="btn-secondary">Sort by Score</button>
       </div>
       <div class="toolbar-group">
-        <button id="exportCsvBtn" class="btn-secondary" title="Export to CSV">📥 Export CSV</button>
-        <button id="exportJsonBtn" class="btn-secondary" title="Export to JSON">📥 Export JSON</button>
-        <button id="importBtn" class="btn-secondary" title="Import from CSV/JSON">📤 Import</button>
-        <input type="file" id="importFileInput" accept=".csv,.json" style="display: none;">
+        <button id="exportCsvBtn" class="btn-secondary" aria-label="Export to CSV">📥 Export CSV</button>
+        <button id="exportJsonBtn" class="btn-secondary" aria-label="Export to JSON">📥 Export JSON</button>
+        <button id="importBtn" class="btn-secondary" aria-label="Import from CSV or JSON">📤 Import</button>
+        <input type="file" id="importFileInput" accept=".csv,.json" style="display: none;" aria-hidden="true">
       </div>
       <div class="toolbar-info">
         <span class="scale-info">Scale: <span id="scaleDisplay">1-5</span></span>
-        <span class="status" id="status"></span>
+        <button id="avgToggleBtn" class="btn-secondary btn-small avg-toggle" aria-pressed="false" aria-label="Show average scores">Avg ▼</button>
+        <span class="status" id="status" aria-live="polite" aria-atomic="true"></span>
       </div>
     </div>
 
@@ -62,24 +63,24 @@
       </div>
 
       <div class="items-container">
-        <table id="itemsTable" class="items-table">
+        <table id="itemsTable" class="items-table" aria-label="GUT priority matrix">
           <thead>
             <tr>
-              <th class="col-label" rowspan="2">Item</th>
-              <th colspan="4" class="col-group-header">Your Scores</th>
-              <th colspan="5" class="col-group-header avg-group">Average Scores</th>
-              <th class="col-actions" rowspan="2">Actions</th>
+              <th class="col-label" rowspan="2" scope="col">Item</th>
+              <th colspan="4" class="col-group-header" scope="colgroup">Your Scores</th>
+              <th colspan="5" class="col-group-header avg-group avg-col" scope="colgroup">Average Scores</th>
+              <th class="col-actions" rowspan="2" scope="col">Actions</th>
             </tr>
             <tr>
-              <th class="col-g">G</th>
-              <th class="col-u">U</th>
-              <th class="col-t">T</th>
-              <th class="col-score">Score</th>
-              <th class="col-g avg-col">G</th>
-              <th class="col-u avg-col">U</th>
-              <th class="col-t avg-col">T</th>
-              <th class="col-score avg-col">Score</th>
-              <th class="col-count avg-col">👥</th>
+              <th class="col-g" scope="col">G</th>
+              <th class="col-u" scope="col">U</th>
+              <th class="col-t" scope="col">T</th>
+              <th class="col-score" scope="col">Score</th>
+              <th class="col-g avg-col" scope="col">G</th>
+              <th class="col-u avg-col" scope="col">U</th>
+              <th class="col-t avg-col" scope="col">T</th>
+              <th class="col-score avg-col" scope="col">Score</th>
+              <th class="col-count avg-col" scope="col"><span aria-hidden="true">👥</span><span class="sr-only">Contributors</span></th>
             </tr>
           </thead>
           <tbody id="itemsBody">
@@ -91,10 +92,10 @@
       </div>
 
       <!-- Item Notes Section -->
-      <div id="notesSection" class="notes-section" style="display: none;">
+      <div id="notesSection" class="notes-section" style="display: none;" role="region" aria-label="Item notes">
         <h3>Notes for: <span id="notesItemLabel"></span></h3>
-        <textarea id="notesTextarea" placeholder="Add notes or details..." maxlength="1024"></textarea>
-        <input type="url" id="urlInput" placeholder="https://example.com (optional)" class="url-input">
+        <textarea id="notesTextarea" placeholder="Add notes or details..." maxlength="1024" aria-label="Notes text"></textarea>
+        <input type="url" id="urlInput" placeholder="https://example.com (optional)" class="url-input" aria-label="Reference URL">
         <button id="saveNotesBtn" class="btn-secondary">Save Notes</button>
         <button id="closeNotesBtn" class="btn-secondary">Close</button>
       </div>
@@ -111,9 +112,9 @@
   </div>
 
   <!-- Conflict Resolution Modal -->
-  <div id="conflictModal" class="modal" style="display: none;">
+  <div id="conflictModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="conflictModalTitle">
     <div class="modal-content">
-      <h2>⚠️ Conflict Detected</h2>
+      <h2 id="conflictModalTitle">⚠️ Conflict Detected</h2>
       <p>The list was updated by someone else while you were editing.</p>
       <div id="conflictDetails" class="conflict-details"></div>
       <p><strong>What would you like to do?</strong></p>
@@ -123,6 +124,13 @@
         <button id="cancelBtn" class="btn-secondary">Cancel</button>
       </div>
     </div>
+  </div>
+
+  <!-- Undo Toast -->
+  <div id="undoToast" class="undo-toast" style="display: none;" role="status" aria-live="polite">
+    <span id="undoToastMessage">Item deleted</span>
+    <button id="undoToastBtn" class="undo-toast-btn">Undo</button>
+    <div id="undoToastProgress" class="undo-toast-progress"></div>
   </div>
 
   <script src="/editor.js"></script>

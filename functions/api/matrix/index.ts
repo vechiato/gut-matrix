@@ -17,7 +17,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     // Get env limits
     const envMin = Number(env.MIN_SCALE || 1);
-    const envMax = Number(env.MAX_SCALE || 5);
+    const envMax = Number(env.MAX_SCALE || 10);
 
     // Process scale
     const scale = normalizeScale(body.scale, envMin, envMax);
