@@ -51,11 +51,8 @@ async function handleCreate(e) {
 
     const response = await fetch('/api/list', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Id': getUserId(),
-      },
-      body: JSON.stringify({ title, scale: { min: scaleMin, max: scaleMax } })
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId() },
+      body: JSON.stringify({ title, scale: { min: scaleMin, max: scaleMax } }),
     });
 
     if (response.status === 429) {
@@ -66,7 +63,9 @@ async function handleCreate(e) {
 
     if (!response.ok) throw new Error('Failed to create list');
 
-    const { slug } = await response.json();
+    const { slug, ownerToken } = await response.json();
+    localStorage.setItem(`gut_owner_${slug}`, ownerToken);
+
     addToRecent({ slug, title: title || 'Untitled List', scaleMin, scaleMax, timestamp: Date.now() });
     window.location.href = `/matrix.html?slug=${slug}`;
   } catch (error) {

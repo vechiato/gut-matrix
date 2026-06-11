@@ -8,6 +8,9 @@ import {
   jsonResponse,
   errorResponse,
   getListKey,
+  hashHex,
+  generateOwnerToken,
+  stripSecretFields,
 } from '../../utils';
 import {
   checkUserRateLimits,
@@ -42,13 +45,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // Generate slug
     const slug = generateSlug(title);
 
-    // Create list
+    const ownerToken = generateOwnerToken();
+    const ownerTokenHash = await hashHex(ownerToken);
+
     const list: GutList = {
       title,
       items: [],
       scale,
       updatedAt: new Date().toISOString(),
       version: 1,
+      ownerTokenHash,
     };
 
     const listData = JSON.stringify(list);
@@ -66,9 +72,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       expirationTtl: ttlDays * 24 * 60 * 60,
     });
 
-    // Return slug
-    const response: CreateListResponse = { slug };
-    return jsonResponse(response, 201);
+    return jsonResponse({ slug, ownerToken } as CreateListResponse, 201);
 
   } catch (error) {
     console.error('Create list error:', error);
@@ -83,7 +87,7 @@ export const onRequestOptions: PagesFunction = async () => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Current-Version, X-Owner-Token, X-List-Password',
     },
   });
 };

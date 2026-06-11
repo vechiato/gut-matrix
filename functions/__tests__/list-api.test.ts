@@ -353,6 +353,72 @@ describe('DELETE /api/list/:slug', () => {
 
 // ─── OPTIONS /api/list/:slug ──────────────────────────────────────────────────
 
+// ─── Security: owner token ────────────────────────────────────────────────────
+
+describe('Owner token', () => {
+  let kv: MockKV;
+  beforeEach(() => { kv = new MockKV(); });
+
+  test('POST returns ownerToken in response', async () => {
+    const req = jsonRequest('POST', 'http://localhost/api/list',
+      { title: 'Secure' }, { 'X-User-Id': VALID_UUID });
+    const res = await onRequestPost(ctx(req, {}, makeEnv(kv)));
+    expect(res.status).toBe(201);
+    const body = await res.json() as any;
+    expect(typeof body.ownerToken).toBe('string');
+    expect(body.ownerToken).toHaveLength(64);
+    // ownerTokenHash stored in KV but NOT returned
+    const stored = JSON.parse(kv.raw(`list:${body.slug}`)!) as any;
+    expect(stored.ownerTokenHash).toBeDefined();
+    expect(body.ownerTokenHash).toBeUndefined();
+  });
+
+  test('DELETE without owner token returns 403 when list is protected', async () => {
+    const slug = 'sec-del';
+    kv.seed(`list:${slug}`, JSON.stringify({ ...makeList(), ownerTokenHash: 'fakehash' }));
+    const req = new Request(`http://localhost/api/list/${slug}`, { method: 'DELETE' });
+    const res = await onRequestDelete(ctx(req, { slug }, makeEnv(kv)));
+    expect(res.status).toBe(403);
+  });
+
+  test('DELETE with wrong owner token returns 403', async () => {
+    // Create real list via POST to get actual hash
+    const postReq = jsonRequest('POST', 'http://localhost/api/list',
+      { title: 'T' }, { 'X-User-Id': VALID_UUID });
+    const postRes = await onRequestPost(ctx(postReq, {}, makeEnv(kv)));
+    const { slug } = await postRes.json() as any;
+
+    const req = new Request(`http://localhost/api/list/${slug}`, {
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': 'wrongtoken' },
+    });
+    const res = await onRequestDelete(ctx(req, { slug }, makeEnv(kv)));
+    expect(res.status).toBe(403);
+  });
+
+  test('DELETE with correct owner token returns 204', async () => {
+    const postReq = jsonRequest('POST', 'http://localhost/api/list',
+      { title: 'T' }, { 'X-User-Id': VALID_UUID });
+    const postRes = await onRequestPost(ctx(postReq, {}, makeEnv(kv)));
+    const { slug, ownerToken } = await postRes.json() as any;
+
+    const req = new Request(`http://localhost/api/list/${slug}`, {
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': ownerToken },
+    });
+    const res = await onRequestDelete(ctx(req, { slug }, makeEnv(kv)));
+    expect(res.status).toBe(204);
+    expect(kv.has(`list:${slug}`)).toBe(false);
+  });
+
+  test('DELETE without ownerTokenHash set allows delete (legacy lists)', async () => {
+    kv.seed('list:legacy', JSON.stringify(makeList()));
+    const req = new Request('http://localhost/api/list/legacy', { method: 'DELETE' });
+    const res = await onRequestDelete(ctx(req, { slug: 'legacy' }, makeEnv(kv)));
+    expect(res.status).toBe(204);
+  });
+});
+
 describe('OPTIONS /api/list/:slug', () => {
   test('returns 204 with correct CORS headers', async () => {
     const kv = new MockKV();

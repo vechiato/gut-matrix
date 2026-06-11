@@ -8,6 +8,8 @@ import {
   jsonResponse,
   errorResponse,
   getListKey,
+  generateOwnerToken,
+  hashHex,
 } from '../../utils';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
@@ -28,21 +30,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // Generate slug
     const slug = generateSlug(title);
 
-    // Create list
+    const ownerToken = generateOwnerToken();
+    const ownerTokenHash = await hashHex(ownerToken);
+
     const list: GutList = {
       title,
       items: [],
       scale,
       updatedAt: new Date().toISOString(),
       version: 1,
+      ownerTokenHash,
     };
 
-    // Store in KV
     const key = getListKey(slug);
     await env.MATRIX_STORE.put(key, JSON.stringify(list));
 
-    // Return slug
-    const response: CreateListResponse = { slug };
+    const response: CreateListResponse = { slug, ownerToken };
     return jsonResponse(response, 201);
 
   } catch (error) {

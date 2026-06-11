@@ -205,9 +205,25 @@ export function jsonResponse(data: any, status = 200): Response {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Current-Version, X-Owner-Token',
     },
   });
+}
+
+export async function hashHex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export function generateOwnerToken(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export function stripSecretFields(list: GutList): Omit<GutList, 'ownerTokenHash'> {
+  const { ownerTokenHash, ...pub } = list;
+  return pub;
 }
 
 /**

@@ -18,7 +18,14 @@ let undoItem = null;
 let undoIndex = null;
 let undoTimeout = null;
 
-// User ID management
+// ── Security helpers ─────────────────────────────────────────────────────────
+
+function getOwnerToken(slug) {
+  return localStorage.getItem(`gut_owner_${slug}`) || null;
+}
+
+// ── User ID management ────────────────────────────────────────────────────────
+
 function getUserId() {
   if (userId) return userId;
   
@@ -135,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Error banner
   document.getElementById('errorBannerClose').addEventListener('click', hideBanner);
 
+
   // Export/Import handlers
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
   document.getElementById('exportJsonBtn').addEventListener('click', handleExportJson);
@@ -225,20 +233,25 @@ async function loadList(slug) {
     setStatus('Loading...');
     const response = await fetch(`/api/list/${slug}`);
     if (!response.ok) {
-      if (response.status === 404) {
-        window.location.href = '/';
-        return;
-      }
+      if (response.status === 404) { window.location.href = '/'; return; }
       throw new Error(`Failed to load list: ${response.statusText}`);
     }
     currentList = await response.json();
     renderList();
+    updateDeleteButtonState(slug);
     updateRecent();
-    setStatus('Loaded', 'success');
+    setStatus('');
   } catch (error) {
     console.error('Load error:', error);
     setStatus('Failed to load', 'error');
   }
+}
+
+function updateDeleteButtonState(slug) {
+  const btn = document.getElementById('deleteBtn');
+  const hasToken = !!getOwnerToken(slug);
+  btn.disabled = !hasToken;
+  btn.title = hasToken ? 'Delete this list permanently' : 'Only the list creator can delete this list';
 }
 
 function renderList() {
@@ -680,13 +693,26 @@ function promptShareUrl(url) {
 }
 
 async function handleDelete() {
-  if (!confirm('Are you sure you want to delete this list? This cannot be undone.')) return;
   const slug = getSlugFromUrl();
+  const ownerToken = getOwnerToken(slug);
+  if (!ownerToken) {
+    showBanner('Only the list creator can delete this list.', 'error');
+    return;
+  }
+  if (!confirm('Are you sure you want to delete this list? This cannot be undone.')) return;
   const btn = document.getElementById('deleteBtn');
   try {
     btn.disabled = true;
     setStatus('Deleting...');
-    const response = await fetch(`/api/list/${slug}`, { method: 'DELETE' });
+    const response = await fetch(`/api/list/${slug}`, {
+      method: 'DELETE',
+      headers: { 'X-Owner-Token': ownerToken },
+    });
+    if (response.status === 403) {
+      showBanner('Permission denied. Your owner token is invalid.', 'error');
+      btn.disabled = false;
+      return;
+    }
     if (!response.ok) throw new Error(`Failed to delete: ${response.statusText}`);
     removeFromRecent(slug);
     window.location.href = '/';

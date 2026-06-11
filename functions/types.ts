@@ -35,6 +35,7 @@ export interface GutList {
   scale: Scale;
   updatedAt: string;
   version: number;
+  ownerTokenHash?: string;  // stored only — never returned to clients
 }
 
 export interface UserItemUpdate {
@@ -62,6 +63,7 @@ export interface UpdateListRequest {
 
 export interface CreateListResponse {
   slug: string;
+  ownerToken: string;
 }
 
 export interface ConflictResponse {

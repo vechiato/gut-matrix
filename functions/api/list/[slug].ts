@@ -11,6 +11,8 @@ import {
   getListKey,
   validateUserId,
   mergeUserScore,
+  hashHex,
+  stripSecretFields,
 } from '../../utils';
 import {
   checkUserRateLimits,
@@ -23,6 +25,7 @@ import {
 function isUserItemUpdate(item: any): item is UserItemUpdate {
   return 'g' in item || 'u' in item || 't' in item;
 }
+
 
 // GET /api/list/:slug - Read list
 export const onRequestGet: PagesFunction<Env> = async ({ request, params, env }) => {
@@ -37,21 +40,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, params, env })
     }
     
     const list: GutList = JSON.parse(value);
-    
+
     // Check if client has current version (smart sync)
     const clientVersion = request.headers.get('X-Current-Version');
     if (clientVersion && parseInt(clientVersion) === list.version) {
-      // Client is up to date, return 304 Not Modified
       return new Response(null, {
         status: 304,
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'no-cache',
-        },
+        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' },
       });
     }
-    
-    return jsonResponse(list);
+
+    return jsonResponse(stripSecretFields(list));
     
   } catch (error) {
     console.error('Get list error:', error);
@@ -105,12 +104,12 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
     }
     
     const existing: GutList = JSON.parse(existingRaw);
-    
+
     // Check for version conflict (optimistic concurrency)
     if (incoming.version !== undefined && incoming.version !== existing.version) {
       const conflict: ConflictResponse = {
         conflict: true,
-        server: existing,
+        server: stripSecretFields(existing),
       };
       return jsonResponse(conflict, 409);
     }
@@ -190,15 +189,16 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
         .map(item => normalizeItem(item, scale, maxItems));
     }
     
-    // Update list
+    // Update list — preserve security fields from existing
     const updated: GutList = {
-      title: incoming.title !== undefined 
-        ? sanitizeTitle(incoming.title) 
+      title: incoming.title !== undefined
+        ? sanitizeTitle(incoming.title)
         : existing.title,
       items,
       scale,
       updatedAt: new Date().toISOString(),
       version: existing.version + 1,
+      ...(existing.ownerTokenHash && { ownerTokenHash: existing.ownerTokenHash }),
     };
     
     const updatedData = JSON.stringify(updated);
@@ -215,8 +215,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
       expirationTtl: ttlDays * 24 * 60 * 60,
     });
     
-    return jsonResponse(updated);
-    
+    return jsonResponse(stripSecretFields(updated));
+
   } catch (error) {
     console.error('Update list error:', error);
     return errorResponse('Failed to update list', 500);
@@ -224,20 +224,30 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
 };
 
 // DELETE /api/list/:slug - Delete list
-export const onRequestDelete: PagesFunction<Env> = async ({ params, env }) => {
+export const onRequestDelete: PagesFunction<Env> = async ({ request, params, env }) => {
   try {
     const slug = params.slug as string;
     const key = getListKey(slug);
-    
+
+    const existingRaw = await env.MATRIX_STORE.get(key);
+    if (existingRaw) {
+      const existing: GutList = JSON.parse(existingRaw);
+
+      if (existing.ownerTokenHash) {
+        const token = request.headers.get('X-Owner-Token');
+        if (!token) return errorResponse('Owner token required to delete this list', 403);
+        const hash = await hashHex(token);
+        if (hash !== existing.ownerTokenHash) return errorResponse('Invalid owner token', 403);
+      }
+    }
+
     await env.MATRIX_STORE.delete(key);
-    
-    return new Response(null, { 
+
+    return new Response(null, {
       status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { 'Access-Control-Allow-Origin': '*' },
     });
-    
+
   } catch (error) {
     console.error('Delete list error:', error);
     return errorResponse('Failed to delete list', 500);
@@ -251,7 +261,7 @@ export const onRequestOptions: PagesFunction = async () => {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, X-User-Id, X-Current-Version, X-Owner-Token',
     },
   });
 };
