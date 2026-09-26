@@ -6,6 +6,7 @@ import {
   sanitizeTitle,
   normalizeScale,
   normalizeItem,
+  sanitizeUrl,
   normalizeUserScore,
   calculateAverageScore,
   mergeUserScore,
@@ -118,7 +119,7 @@ describe('normalizeItem', () => {
       id: 'test-123',
       label: 'Test Item',
       scores: {
-        'user-1': { g: 5, u: 4, t: 3, score: 60 },
+        '550e8400-e29b-41d4-a716-446655440000': { g: 5, u: 4, t: 3, score: 60 },
       },
       notes: 'Some notes',
     };
@@ -410,5 +411,76 @@ describe('errorResponse', () => {
     const res = errorResponse('Bad');
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'Bad' });
+  });
+});
+
+describe('sanitizeUrl', () => {
+  test.each([
+    ['https://example.com/path?q=1', 'https://example.com/path?q=1'],
+    ['  http://example.com  ', 'http://example.com/'],
+    ['https://example.com/a"b', 'https://example.com/a%22b'],
+  ])('accepts %j as %j', (input, expected) => {
+    expect(sanitizeUrl(input)).toBe(expected);
+  });
+
+  test.each([
+    ['javascript:alert(1)'],
+    ['JAVASCRIPT:alert(1)'],
+    ['data:text/html,<script>alert(1)</script>'],
+    ['vbscript:msgbox(1)'],
+    ['https://example.com" onmouseover="alert(1)'],
+    ['not a url'],
+    [''],
+    ['https://example.com/' + 'a'.repeat(2048)],
+    [42],
+    [null],
+    [undefined],
+  ])('rejects %j', (input) => {
+    expect(sanitizeUrl(input)).toBeUndefined();
+  });
+});
+
+describe('normalizeItem sanitizes untrusted input', () => {
+  const scale: Scale = { min: 1, max: 5 };
+  const uid = '550e8400-e29b-41d4-a716-446655440000';
+
+  test('replaces ids that could break out of an HTML attribute', () => {
+    const item = normalizeItem({ id: 'x"><img src=x onerror=alert(1)>', label: 'L' }, scale, 500);
+    expect(item.id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('keeps normal ids', () => {
+    expect(normalizeItem({ id: 'a1_B-2', label: 'L' }, scale, 500).id).toBe('a1_B-2');
+  });
+
+  test('drops scores under invalid user ids or with non-object values', () => {
+    const item = normalizeItem({
+      id: 'i', label: 'L',
+      scores: { '<script>': { g: 1, u: 1, t: 1, score: 1 }, [uid]: 'nope' } as any,
+    }, scale, 500);
+    expect(item.scores).toEqual({});
+    expect(item.avgScore).toBeUndefined();
+  });
+
+  test('turns score values into clamped numbers and recomputes the score', () => {
+    const item = normalizeItem({
+      id: 'i', label: 'L',
+      scores: { [uid]: { g: '<b>' as any, u: 9, t: 2, score: 999 } },
+    }, scale, 500);
+    expect(item.scores[uid]).toEqual({ g: 1, u: 5, t: 2, score: 10 });
+  });
+
+  test('recomputes avgScore instead of trusting the client', () => {
+    const item = normalizeItem({
+      id: 'i', label: 'L',
+      scores: { [uid]: { g: 2, u: 2, t: 2, score: 8 } },
+      avgScore: { g: '<img>' as any, u: 0, t: 0, score: 0, count: 99 },
+    }, scale, 500);
+    expect(item.avgScore).toEqual({ g: 2, u: 2, t: 2, score: 8, count: 1 });
+  });
+
+  test('keeps safe URLs and clears unsafe ones', () => {
+    expect(normalizeItem({ id: 'i', label: 'L', url: 'https://example.com' }, scale, 500).url).toBe('https://example.com/');
+    expect(normalizeItem({ id: 'i', label: 'L', url: 'javascript:alert(1)' }, scale, 500).url).toBeUndefined();
   });
 });

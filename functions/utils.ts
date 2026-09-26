@@ -60,16 +60,40 @@ export function normalizeItem(
   scale: Scale,
   maxItems: number
 ): GutItem {
-  // Initialize scores object if not present
-  const scores = item.scores || {};
-  
+  // Every stored item passes through here, and clients can send anything:
+  // keep only well-formed scores and recompute the average rather than trusting it.
+  const scores: Record<string, UserScore> = {};
+  for (const [userId, score] of Object.entries(item.scores || {})) {
+    if (validateUserId(userId) && score && typeof score === 'object') {
+      scores[userId] = normalizeUserScore(score, scale);
+    }
+  }
+
   return {
-    id: String(item.id || crypto.randomUUID()),
+    id: typeof item.id === 'string' && SAFE_ID.test(item.id) ? item.id : crypto.randomUUID(),
     label: String(item.label || '').slice(0, 200).trim() || 'Untitled Item',
     scores,
-    avgScore: item.avgScore,
+    avgScore: calculateAverageScore(scores),
     notes: item.notes ? String(item.notes).slice(0, 1024).trim() : undefined,
+    url: sanitizeUrl(item.url),
   };
+}
+
+// Item ids end up in HTML attributes; browser-generated UUIDs match this
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Accept only http(s) URLs up to 2048 chars; returns the normalized href
+ * (quotes and spaces percent-encoded) or undefined to clear the link.
+ */
+export function sanitizeUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length > 2048) return undefined;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
