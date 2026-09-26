@@ -81,6 +81,8 @@ jobs:
       contents: read
       deployments: write
       pull-requests: write
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,10 +100,18 @@ jobs:
         run: npm install -g wrangler
 
       - name: Deploy Preview to Cloudflare Pages
+        id: deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy public --project-name=gut-matrix --branch=${{ github.head_ref }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          set -o pipefail
+          npx wrangler pages deploy public --project-name=gut-matrix --branch="$BRANCH" | tee deploy.log
+          # The exact deployment URL (not the branch alias), for the smoke test
+          url=$(grep -oE 'Take a peek over at https://[^ ]+' deploy.log | awk '{print $NF}')
+          test -n "$url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Comment PR with preview URL
         if: success()
@@ -116,3 +126,38 @@ jobs:
               repo: context.repo.repo,
               body: `## 🚀 Preview Deployment\n\nYour changes have been deployed to:\n${previewUrl}`
             });
+
+  smoke:
+    runs-on: ubuntu-latest
+    name: Smoke Test (preview)
+    needs: deploy-preview
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke test against the preview
+        env:
+          BASE_URL: ${{ needs.deploy-preview.outputs.url }}
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

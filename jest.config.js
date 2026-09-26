@@ -14,6 +14,7 @@ export default {
       },
     ],
   },
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
   testMatch: [
     '**/__tests__/**/*.test.ts',
     '**/?(*.)+(spec|test).ts',

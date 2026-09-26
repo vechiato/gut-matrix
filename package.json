@@ -10,7 +10,8 @@
     "types": "tsc --noEmit",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "cloudflare",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260926.1",
     "@jest/globals": "^30.2.0",
+    "@playwright/test": "^1.63.0",
     "@types/jest": "^30.0.0",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
