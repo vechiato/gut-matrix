@@ -22,7 +22,11 @@ export default {
     'functions/**/*.ts',
     '!functions/**/*.d.ts',
     '!functions/**/types.ts',
+    '!functions/__tests__/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: { statements: 100, branches: 100, functions: 100, lines: 100 },
+  },
 };

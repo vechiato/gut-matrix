@@ -49,7 +49,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
     // Validate
     const validation = validateList(incoming, maxItems);
     if (!validation.valid) {
-      return errorResponse(validation.error || 'Invalid request', 400);
+      return errorResponse(validation.error!, 400);
     }
     
     // Get existing list

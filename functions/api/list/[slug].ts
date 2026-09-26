@@ -21,11 +21,6 @@ import {
   rateLimitResponse,
 } from '../../rateLimit';
 
-// Type guard to check if an item is a UserItemUpdate
-function isUserItemUpdate(item: any): item is UserItemUpdate {
-  return 'g' in item || 'u' in item || 't' in item;
-}
-
 
 // GET /api/list/:slug - Read list
 export const onRequestGet: PagesFunction<Env> = async ({ request, params, env }) => {
@@ -94,7 +89,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
     // Validate
     const validation = validateList(incoming, maxItems);
     if (!validation.valid) {
-      return errorResponse(validation.error || 'Invalid request', 400);
+      return errorResponse(validation.error!, 400);
     }
     
     // Get existing list
@@ -128,29 +123,19 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
       const isStructuralChange = incoming.items.length !== existing.items.length;
       
       if (isStructuralChange) {
-        // Handle add/delete: rebuild items array but preserve existing scores
+        // Handle add/delete: rebuild items array by id, preserving existing scores.
+        // Label/notes/url edits are applied by the merge step below.
         items = incoming.items.slice(0, maxItems).map(incomingItem => {
-          // Try to find existing item by ID
           const existingItem = existing.items.find(e => e.id === incomingItem.id);
-          
-          if (existingItem) {
-            // Item exists - preserve its scores and update label/notes
-            return {
-              ...normalizeItem(existingItem, scale, maxItems),
-              label: incomingItem.label || existingItem.label,
-              notes: incomingItem.notes !== undefined ? incomingItem.notes : existingItem.notes,
-            };
-          } else {
-            // New item - create with empty scores
-            return normalizeItem(incomingItem, scale, maxItems);
-          }
+          return normalizeItem(existingItem ?? incomingItem, scale, maxItems);
         });
       }
       
-      // Now merge user's scores into items
+      // Now merge user's edits and scores into items.
+      // Unscored items arrive without g/u/t, but their label/notes/url edits still apply.
       items = items.map((item, index) => {
-        const incomingItem = incoming.items![index];
-        if (incomingItem && isUserItemUpdate(incomingItem)) {
+        const incomingItem = incoming.items![index] as UserItemUpdate | undefined;
+        if (incomingItem) {
           // Update label if provided
           if (incomingItem.label !== undefined) {
             item = { ...item, label: incomingItem.label };

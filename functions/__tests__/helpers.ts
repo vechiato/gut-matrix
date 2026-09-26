@@ -78,3 +78,25 @@ export function freshUserId(): string {
   const n = String(++rlCounter).padStart(12, '0');
   return `bbbbbbbb-0000-4000-a000-${n}`;
 }
+
+/** KV whose every call rejects, to exercise the handlers' 500 paths */
+export class FailingKV {
+  async get(): Promise<never> { throw new Error('KV unavailable'); }
+  async put(): Promise<never> { throw new Error('KV unavailable'); }
+  async delete(): Promise<never> { throw new Error('KV unavailable'); }
+}
+
+/** Env with every limit unset, so handlers fall back to their built-in defaults */
+export function makeBlankEnv(kv: MockKV, overrides: Partial<Env> = {}): Env {
+  return makeEnv(kv, {
+    MAX_ITEMS: '', MIN_SCALE: '', MAX_SCALE: '',
+    MAX_SAVES_PER_USER_PER_MINUTE: '', MAX_SAVES_PER_USER_PER_HOUR: '',
+    MAX_LISTS_PER_USER_PER_DAY: '', MAX_USERS_PER_LIST: '', MAX_SAVES_PER_LIST_PER_MINUTE: '',
+    LIST_MAX_SIZE_KB: '', LIST_TTL_DAYS: '',
+    ...overrides,
+  });
+}
+
+export function rawRequest(method: string, url: string, body: string, headers: Record<string, string> = {}): Request {
+  return new Request(url, { method, headers: { 'Content-Type': 'application/json', ...headers }, body });
+}
