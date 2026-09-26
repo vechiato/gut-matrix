@@ -92,7 +92,7 @@ function loadRecentLists() {
   }
   recent.sort((a, b) => b.timestamp - a.timestamp);
   listEl.innerHTML = recent.map(item => `
-    <a href="/matrix.html?k=${item.slug}" class="recent-item">
+    <a href="/matrix.html?k=${encodeURIComponent(item.slug)}" class="recent-item">
       <div class="recent-item-info">
         <div class="recent-item-title">${escapeHtml(item.title)}</div>
         <div class="recent-item-meta">Scale ${item.scaleMin}-${item.scaleMax} • ${formatTime(item.timestamp)}</div>
@@ -122,8 +122,12 @@ function formatTime(ts) {
   return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? 's' : ''} ago`;
 }
 
+// Escapes for both text and attribute contexts (quotes included)
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

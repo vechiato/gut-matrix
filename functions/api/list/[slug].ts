@@ -164,8 +164,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
         }
         return item;
       });
+
+      // Merged fields come straight from the client; sanitize them like any stored item
+      items = items.map(item => normalizeItem(item, scale, maxItems));
     }
-    
+
     // Handle case where incoming items are full GutItems (e.g., title-only update)
     if (incoming.items && !incoming.userId) {
       // This is a non-user update, replace items entirely

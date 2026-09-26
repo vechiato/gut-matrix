@@ -237,7 +237,7 @@ describe('PUT /api/list/:slug', () => {
     const res = await onRequestPut(ctx(req, { slug: 'p6' }, makeEnv(kv)));
     const body = await res.json() as GutList;
     expect(body.items[0].notes).toBe('Important');
-    expect(body.items[0].url).toBe('https://example.com');
+    expect(body.items[0].url).toBe('https://example.com/');
   });
 
   test('saves label/notes/url edits on an item the user has not scored', async () => {
@@ -255,7 +255,7 @@ describe('PUT /api/list/:slug', () => {
     const body = await res.json() as GutList;
     expect(body.items[0].label).toBe('Renamed');
     expect(body.items[0].notes).toBe('New note');
-    expect(body.items[0].url).toBe('https://example.com');
+    expect(body.items[0].url).toBe('https://example.com/');
     expect(body.items[0].scores[VALID_UUID]).toBeUndefined();
     expect(body.items[0].scores[otherId].score).toBe(8);
   });
@@ -520,5 +520,73 @@ describe('/api/list edge cases', () => {
     for (const res of results) expect(res.status).toBe(500);
     expect(logged).toHaveBeenCalledTimes(4);
     logged.mockRestore();
+  });
+});
+
+describe('PUT /api/list/:slug sanitizes stored items', () => {
+  let kv: MockKV;
+  beforeEach(() => { kv = new MockKV(); });
+
+  async function put(slug: string, body: unknown) {
+    const res = await onRequestPut(ctx(jsonRequest('PUT', `http://localhost/api/list/${slug}`, body), { slug }, makeEnv(kv)));
+    expect(res.status).toBe(200);
+    return JSON.parse(kv.raw(`list:${slug}`)!) as GutList;
+  }
+
+  test('clears javascript: and attribute-breaking URLs', async () => {
+    kv.seed('list:s1', JSON.stringify(makeList({ items: [
+      { id: 'a', label: 'A', scores: {} },
+      { id: 'b', label: 'B', scores: {} },
+    ] })));
+    const stored = await put('s1', { userId: VALID_UUID, items: [
+      { id: 'a', label: 'A', g: 1, u: 1, t: 1, url: 'javascript:alert(1)' },
+      { id: 'b', label: 'B', g: 1, u: 1, t: 1, url: 'https://example.com" onmouseover="alert(1)' },
+    ] });
+    expect(stored.items.map(i => i.url)).toEqual([undefined, undefined]);
+  });
+
+  test('an empty url clears an existing link', async () => {
+    kv.seed('list:s2', JSON.stringify(makeList({ items: [{ id: 'a', label: 'A', scores: {}, url: 'https://old.example/' }] })));
+    const stored = await put('s2', { userId: VALID_UUID, items: [{ id: 'a', label: 'A', g: 1, u: 1, t: 1, url: '' }] });
+    expect(stored.items[0].url).toBeUndefined();
+  });
+
+  test('keeps an existing link when a structural change omits it', async () => {
+    kv.seed('list:s3', JSON.stringify(makeList({ items: [{ id: 'a', label: 'A', scores: {}, url: 'https://keep.example/' }] })));
+    const stored = await put('s3', { userId: VALID_UUID, items: [
+      { id: 'a', label: 'A' },
+      { id: 'new', label: 'New', g: 1, u: 1, t: 1 },
+    ] });
+    expect(stored.items[0].url).toBe('https://keep.example/');
+  });
+
+  test('a new item with an unsafe id gets a fresh id', async () => {
+    kv.seed('list:s4', JSON.stringify(makeList()));
+    const stored = await put('s4', { userId: VALID_UUID, items: [{ id: '"><svg onload=alert(1)>', label: 'X', g: 1, u: 1, t: 1 }] });
+    expect(stored.items[0].id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('caps merged labels and replaces empty ones', async () => {
+    kv.seed('list:s5', JSON.stringify(makeList({ items: [
+      { id: 'a', label: 'A', scores: {} },
+      { id: 'b', label: 'B', scores: {} },
+    ] })));
+    const stored = await put('s5', { userId: VALID_UUID, items: [
+      { id: 'a', label: 'x'.repeat(500), g: 1, u: 1, t: 1 },
+      { id: 'b', label: '', g: 1, u: 1, t: 1 },
+    ] });
+    expect(stored.items[0].label).toHaveLength(200);
+    expect(stored.items[1].label).toBe('Untitled Item');
+  });
+
+  test('a save without userId cannot plant fake scores or averages', async () => {
+    kv.seed('list:s6', JSON.stringify(makeList()));
+    const stored = await put('s6', { items: [{
+      id: 'a', label: 'A',
+      scores: { 'not-a-uuid': { g: 5, u: 5, t: 5, score: 125 }, [VALID_UUID]: { g: '<img>', u: 3, t: 3, score: 1 } },
+      avgScore: { g: '<img src=x onerror=alert(1)>', u: 1, t: 1, score: 1, count: 50 },
+    }] });
+    expect(stored.items[0].scores).toEqual({ [VALID_UUID]: { g: 1, u: 3, t: 3, score: 9 } });
+    expect(stored.items[0].avgScore).toEqual({ g: 1, u: 3, t: 3, score: 9, count: 1 });
   });
 });
