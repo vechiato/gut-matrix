@@ -92,7 +92,7 @@ function loadRecentLists() {
   }
   recent.sort((a, b) => b.timestamp - a.timestamp);
   listEl.innerHTML = recent.map(item => `
-    <a href="/matrix.html?slug=${item.slug}" class="recent-item">
+    <a href="/matrix.html?k=${item.slug}" class="recent-item">
       <div class="recent-item-info">
         <div class="recent-item-title">${escapeHtml(item.title)}</div>
         <div class="recent-item-meta">Scale ${item.scaleMin}-${item.scaleMax} • ${formatTime(item.timestamp)}</div>
