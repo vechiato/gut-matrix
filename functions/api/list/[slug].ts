@@ -21,11 +21,6 @@ import {
   rateLimitResponse,
 } from '../../rateLimit';
 
-// Type guard to check if an item is a UserItemUpdate
-function isUserItemUpdate(item: any): item is UserItemUpdate {
-  return 'g' in item || 'u' in item || 't' in item;
-}
-
 
 // GET /api/list/:slug - Read list
 export const onRequestGet: PagesFunction<Env> = async ({ request, params, env }) => {
@@ -147,10 +142,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
         });
       }
       
-      // Now merge user's scores into items
+      // Now merge user's edits and scores into items.
+      // Unscored items arrive without g/u/t, but their label/notes/url edits still apply.
       items = items.map((item, index) => {
-        const incomingItem = incoming.items![index];
-        if (incomingItem && isUserItemUpdate(incomingItem)) {
+        const incomingItem = incoming.items![index] as UserItemUpdate | undefined;
+        if (incomingItem) {
           // Update label if provided
           if (incomingItem.label !== undefined) {
             item = { ...item, label: incomingItem.label };

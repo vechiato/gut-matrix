@@ -240,6 +240,26 @@ describe('PUT /api/list/:slug', () => {
     expect(body.items[0].url).toBe('https://example.com');
   });
 
+  test('saves label/notes/url edits on an item the user has not scored', async () => {
+    const otherId = 'aaaaaaaa-bbbb-4000-8000-cccccccccccc';
+    seed('p6b', makeList({
+      items: [{ id: 'i1', label: 'Original', scores: { [otherId]: { g: 2, u: 2, t: 2, score: 8 } } }],
+      version: 1,
+    }));
+    // The editor sends g/u/t as undefined for unscored items, so JSON drops them
+    const req = jsonRequest('PUT', 'http://localhost/api/list/p6b', {
+      title: 'T', version: 1, userId: VALID_UUID,
+      items: [{ id: 'i1', label: 'Renamed', notes: 'New note', url: 'https://example.com' }],
+    });
+    const res = await onRequestPut(ctx(req, { slug: 'p6b' }, makeEnv(kv)));
+    const body = await res.json() as GutList;
+    expect(body.items[0].label).toBe('Renamed');
+    expect(body.items[0].notes).toBe('New note');
+    expect(body.items[0].url).toBe('https://example.com');
+    expect(body.items[0].scores[VALID_UUID]).toBeUndefined();
+    expect(body.items[0].scores[otherId].score).toBe(8);
+  });
+
   test('replaces items entirely when no userId provided', async () => {
     seed('p7', makeList({
       items: [{ id: 'old', label: 'Old', scores: {} }],
