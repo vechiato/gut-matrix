@@ -11,6 +11,7 @@ import {
   mergeUserScore,
   validateUserId,
   validateList,
+  errorResponse,
 } from '../utils.js';
 import type { GutItem, UserScore, Scale, UpdateListRequest } from '../types.js';
 
@@ -391,5 +392,23 @@ describe('validateList', () => {
 
     const result = validateList(request, 500);
     expect(result.valid).toBe(true);
+  });
+});
+
+describe('validateList edge cases', () => {
+  test('rejects a missing body', () => {
+    expect(validateList(null, 500)).toEqual({ valid: false, error: 'Invalid request body' });
+  });
+
+  test('skips the min/max check when scale values are not numbers', () => {
+    expect(validateList({ scale: { min: '5', max: 1 } }, 500).valid).toBe(true);
+  });
+});
+
+describe('errorResponse', () => {
+  test('defaults to status 400 with a JSON error body', async () => {
+    const res = errorResponse('Bad');
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'Bad' });
   });
 });

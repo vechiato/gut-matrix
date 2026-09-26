@@ -1,6 +1,6 @@
 // __tests__/list-api.test.ts - Tests for /api/list handlers
 
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { onRequestPost, onRequestOptions } from '../api/list/index.js';
 import {
   onRequestGet,
@@ -9,7 +9,7 @@ import {
   onRequestOptions as onOptionsSlug,
 } from '../api/list/[slug].js';
 import type { GutList } from '../types.js';
-import { MockKV, makeEnv, ctx, jsonRequest, makeList, VALID_UUID, freshUserId } from './helpers.js';
+import { MockKV, FailingKV, makeEnv, makeBlankEnv, ctx, jsonRequest, rawRequest, makeList, VALID_UUID, freshUserId } from './helpers.js';
 
 // ─── POST /api/list ───────────────────────────────────────────────────────────
 
@@ -448,5 +448,77 @@ describe('OPTIONS /api/list/:slug', () => {
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('GET');
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('PUT');
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('DELETE');
+  });
+});
+
+describe('/api/list edge cases', () => {
+  let kv: MockKV;
+  beforeEach(() => { kv = new MockKV(); });
+
+  test('POST with malformed JSON, no X-User-Id and unset limits creates a default list', async () => {
+    const req = rawRequest('POST', 'http://localhost/api/list', 'not json');
+    const res = await onRequestPost(ctx(req, {}, makeBlankEnv(kv)));
+    expect(res.status).toBe(201);
+    const { slug } = await res.json() as { slug: string };
+    const stored = JSON.parse(kv.raw(`list:${slug}`)!) as GutList;
+    expect(stored.scale).toEqual({ min: 1, max: 5 });
+  });
+
+  test('PUT with malformed JSON and unset limits saves nothing but bumps version', async () => {
+    kv.seed('list:e1', JSON.stringify(makeList({ title: 'Keep', version: 4 })));
+    const req = rawRequest('PUT', 'http://localhost/api/list/e1', '{oops');
+    const res = await onRequestPut(ctx(req, { slug: 'e1' }, makeBlankEnv(kv)));
+    expect(res.status).toBe(200);
+    const body = await res.json() as GutList;
+    expect(body.title).toBe('Keep');
+    expect(body.version).toBe(5);
+  });
+
+  test('PUT applies a new scale', async () => {
+    kv.seed('list:e2', JSON.stringify(makeList()));
+    const req = jsonRequest('PUT', 'http://localhost/api/list/e2', { scale: { min: 1, max: 8 } });
+    const res = await onRequestPut(ctx(req, { slug: 'e2' }, makeEnv(kv, { MAX_SCALE: '10' })));
+    expect((await res.json() as GutList).scale).toEqual({ min: 1, max: 8 });
+  });
+
+  test('PUT keeps the label when an item update omits it', async () => {
+    kv.seed('list:e3', JSON.stringify(makeList({ items: [{ id: 'i1', label: 'Kept', scores: {} }] })));
+    const req = jsonRequest('PUT', 'http://localhost/api/list/e3', {
+      userId: VALID_UUID, items: [{ id: 'i1', g: 2, u: 3, t: 4 }],
+    });
+    const body = await (await onRequestPut(ctx(req, { slug: 'e3' }, makeEnv(kv)))).json() as GutList;
+    expect(body.items[0].label).toBe('Kept');
+    expect(body.items[0].scores[VALID_UUID].score).toBe(24);
+  });
+
+  test('PUT ignores null item entries instead of failing', async () => {
+    kv.seed('list:e4', JSON.stringify(makeList({ items: [{ id: 'i1', label: 'Same', scores: {} }] })));
+    const req = jsonRequest('PUT', 'http://localhost/api/list/e4', { userId: VALID_UUID, items: [null] });
+    const res = await onRequestPut(ctx(req, { slug: 'e4' }, makeEnv(kv)));
+    expect(res.status).toBe(200);
+    expect((await res.json() as GutList).items[0].label).toBe('Same');
+  });
+
+  test('PUT keeps the owner token hash in storage and never returns it', async () => {
+    kv.seed('list:e5', JSON.stringify(makeList({ ownerTokenHash: 'abc123' })));
+    const req = jsonRequest('PUT', 'http://localhost/api/list/e5', { title: 'Renamed' });
+    const body = await (await onRequestPut(ctx(req, { slug: 'e5' }, makeEnv(kv)))).json() as GutList;
+    expect(body).not.toHaveProperty('ownerTokenHash');
+    expect(JSON.parse(kv.raw('list:e5')!).ownerTokenHash).toBe('abc123');
+  });
+
+  test('every handler returns 500 when KV fails', async () => {
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const env = makeEnv(new FailingKV() as any);
+    const url = 'http://localhost/api/list/x';
+    const results = await Promise.all([
+      onRequestPost(ctx(jsonRequest('POST', 'http://localhost/api/list', {}), {}, env)),
+      onRequestGet(ctx(new Request(url), { slug: 'x' }, env)),
+      onRequestPut(ctx(jsonRequest('PUT', url, {}), { slug: 'x' }, env)),
+      onRequestDelete(ctx(new Request(url, { method: 'DELETE' }), { slug: 'x' }, env)),
+    ]);
+    for (const res of results) expect(res.status).toBe(500);
+    expect(logged).toHaveBeenCalledTimes(4);
+    logged.mockRestore();
   });
 });

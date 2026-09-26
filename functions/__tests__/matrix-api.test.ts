@@ -1,6 +1,6 @@
 // __tests__/matrix-api.test.ts - Tests for /api/matrix handlers (legacy/simple endpoints)
 
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest } from '@jest/globals';
 import { onRequestPost, onRequestOptions } from '../api/matrix/index.js';
 import {
   onRequestGet,
@@ -9,7 +9,7 @@ import {
   onRequestOptions as onOptionsSlug,
 } from '../api/matrix/[slug].js';
 import type { GutList } from '../types.js';
-import { MockKV, makeEnv, ctx, jsonRequest, makeList } from './helpers.js';
+import { MockKV, FailingKV, makeEnv, makeBlankEnv, ctx, jsonRequest, rawRequest, makeList } from './helpers.js';
 
 // ─── POST /api/matrix ─────────────────────────────────────────────────────────
 
@@ -182,5 +182,43 @@ describe('OPTIONS /api/matrix/:slug', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('GET');
     expect(res.headers.get('Access-Control-Allow-Methods')).toContain('DELETE');
+  });
+});
+
+describe('/api/matrix edge cases', () => {
+  let kv: MockKV;
+  beforeEach(() => { kv = new MockKV(); });
+
+  test('POST with malformed JSON and unset limits creates a default list', async () => {
+    const res = await onRequestPost(ctx(rawRequest('POST', 'http://localhost/api/matrix', 'nope'), {}, makeBlankEnv(kv)));
+    expect(res.status).toBe(201);
+  });
+
+  test('PUT with malformed JSON and unset limits bumps version only', async () => {
+    kv.seed('list:m9', JSON.stringify(makeList({ version: 2 })));
+    const res = await onRequestPut(ctx(rawRequest('PUT', 'http://localhost/api/matrix/m9', '{'), { slug: 'm9' }, makeBlankEnv(kv)));
+    expect((await res.json() as GutList).version).toBe(3);
+  });
+
+  test('PUT applies a new scale', async () => {
+    kv.seed('list:m10', JSON.stringify(makeList()));
+    const req = jsonRequest('PUT', 'http://localhost/api/matrix/m10', { scale: { min: 1, max: 7 } });
+    const res = await onRequestPut(ctx(req, { slug: 'm10' }, makeEnv(kv, { MAX_SCALE: '10' })));
+    expect((await res.json() as GutList).scale).toEqual({ min: 1, max: 7 });
+  });
+
+  test('every handler returns 500 when KV fails', async () => {
+    const logged = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const env = makeEnv(new FailingKV() as any);
+    const url = 'http://localhost/api/matrix/x';
+    const results = await Promise.all([
+      onRequestPost(ctx(jsonRequest('POST', 'http://localhost/api/matrix', {}), {}, env)),
+      onRequestGet(ctx(new Request(url), { slug: 'x' }, env)),
+      onRequestPut(ctx(jsonRequest('PUT', url, {}), { slug: 'x' }, env)),
+      onRequestDelete(ctx(new Request(url, { method: 'DELETE' }), { slug: 'x' }, env)),
+    ]);
+    for (const res of results) expect(res.status).toBe(500);
+    expect(logged).toHaveBeenCalledTimes(4);
+    logged.mockRestore();
   });
 });

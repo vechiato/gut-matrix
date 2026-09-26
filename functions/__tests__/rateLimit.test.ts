@@ -1,11 +1,12 @@
 // __tests__/rateLimit.test.ts - Tests for rate limiting
 
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest, afterEach } from '@jest/globals';
 import {
   checkRateLimit,
   checkUserRateLimits,
   checkListRateLimits,
   checkListSize,
+  rateLimitResponse,
 } from '../rateLimit.js';
 import type { Env } from '../types.js';
 
@@ -237,5 +238,52 @@ describe('checkListSize', () => {
     const largeData = 'a'.repeat(120 * 1024);
     const result = checkListSize(largeData, mockEnv);
     expect(result.error).toMatch(/\d+\.\d+KB/);
+  });
+});
+
+describe('defaults when limits are unset', () => {
+  const blankEnv: Env = {
+    ...mockEnv,
+    MAX_SAVES_PER_USER_PER_MINUTE: '', MAX_SAVES_PER_USER_PER_HOUR: '',
+    MAX_LISTS_PER_USER_PER_DAY: '', MAX_SAVES_PER_LIST_PER_MINUTE: '', LIST_MAX_SIZE_KB: '',
+  };
+
+  test('user save limit falls back to 2 per minute', () => {
+    const id = 'defaults-save-user';
+    expect(checkUserRateLimits(id, 'save', blankEnv).allowed).toBe(true);
+    expect(checkUserRateLimits(id, 'save', blankEnv).allowed).toBe(true);
+    expect(checkUserRateLimits(id, 'save', blankEnv).error).toContain('(2/2)');
+  });
+
+  test('create limit, list limit and size limit fall back to 10, 10 and 100KB', () => {
+    expect(checkUserRateLimits('defaults-create-user', 'create', blankEnv).allowed).toBe(true);
+    expect(checkListRateLimits('defaults-list', blankEnv).allowed).toBe(true);
+    expect(checkListSize('a'.repeat(101 * 1024), blankEnv).error).toContain('100KB');
+  });
+});
+
+describe('rateLimitResponse', () => {
+  test('defaults Retry-After to 60 seconds', async () => {
+    const res = rateLimitResponse('Slow down');
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('60');
+    expect(await res.json()).toMatchObject({ message: 'Slow down' });
+  });
+});
+
+describe('expired entry cleanup', () => {
+  afterEach(() => { jest.restoreAllMocks(); });
+
+  test('drops expired counters and keeps live ones', () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    checkRateLimit('cleanup-expired', 1, 1_000);
+    checkRateLimit('cleanup-live', 1, 60_000);
+
+    now.mockReturnValue(1_005_000); // first window over, second still open
+    jest.spyOn(Math, 'random').mockReturnValue(0); // force the 1% cleanup pass
+    checkRateLimit('cleanup-trigger', 1, 1_000);
+
+    expect(checkRateLimit('cleanup-expired', 1, 1_000).allowed).toBe(true);
+    expect(checkRateLimit('cleanup-live', 1, 60_000).allowed).toBe(false);
   });
 });

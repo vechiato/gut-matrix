@@ -89,7 +89,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
     // Validate
     const validation = validateList(incoming, maxItems);
     if (!validation.valid) {
-      return errorResponse(validation.error || 'Invalid request', 400);
+      return errorResponse(validation.error!, 400);
     }
     
     // Get existing list
@@ -123,22 +123,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, params, env })
       const isStructuralChange = incoming.items.length !== existing.items.length;
       
       if (isStructuralChange) {
-        // Handle add/delete: rebuild items array but preserve existing scores
+        // Handle add/delete: rebuild items array by id, preserving existing scores.
+        // Label/notes/url edits are applied by the merge step below.
         items = incoming.items.slice(0, maxItems).map(incomingItem => {
-          // Try to find existing item by ID
           const existingItem = existing.items.find(e => e.id === incomingItem.id);
-          
-          if (existingItem) {
-            // Item exists - preserve its scores and update label/notes
-            return {
-              ...normalizeItem(existingItem, scale, maxItems),
-              label: incomingItem.label || existingItem.label,
-              notes: incomingItem.notes !== undefined ? incomingItem.notes : existingItem.notes,
-            };
-          } else {
-            // New item - create with empty scores
-            return normalizeItem(incomingItem, scale, maxItems);
-          }
+          return normalizeItem(existingItem ?? incomingItem, scale, maxItems);
         });
       }
       
