@@ -296,27 +296,27 @@ function renderList() {
     
     const itemLabel = escapeHtml(item.label) || 'this item';
     const notePreview = item.notes
-      ? escapeAttr(item.notes.length > 80 ? item.notes.substring(0, 80) + '…' : item.notes)
+      ? escapeHtml(item.notes.length > 80 ? item.notes.substring(0, 80) + '…' : item.notes)
       : '';
     return `
-      <tr data-id="${item.id}">
+      <tr data-id="${escapeHtml(item.id)}">
         <td class="col-label">
           <textarea data-field="label" class="item-input input-label" maxlength="400" placeholder="Item description" rows="1" aria-label="Item description">${escapeHtml(item.label)}</textarea>
           ${item.notes ? `<span class="has-notes" aria-hidden="true" title="${notePreview}">📝</span>` : ''}
-          ${item.url ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" aria-label="Open reference link"><span aria-hidden="true">🔗</span></a>' : ''}
+          ${/^https?:\/\//i.test(item.url || '') ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" aria-label="Open reference link"><span aria-hidden="true">🔗</span></a>' : ''}
         </td>
         <td class="col-g">${renderScoreChips('g', userG, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
         <td class="col-u">${renderScoreChips('u', userU, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
         <td class="col-t">${renderScoreChips('t', userT, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
-        <td class="col-score"><strong class="score-display" aria-label="Your score">${userTotal}</strong></td>
-        <td class="col-g avg-col"><span class="avg-value">${avgG}</span></td>
-        <td class="col-u avg-col"><span class="avg-value">${avgU}</span></td>
-        <td class="col-t avg-col"><span class="avg-value">${avgT}</span></td>
-        <td class="col-score avg-col"><strong class="avg-value">${avgTotal}</strong></td>
-        <td class="col-count avg-col"><span class="avg-value">${count}</span></td>
+        <td class="col-score"><strong class="score-display" aria-label="Your score">${escapeHtml(userTotal)}</strong></td>
+        <td class="col-g avg-col"><span class="avg-value">${escapeHtml(avgG)}</span></td>
+        <td class="col-u avg-col"><span class="avg-value">${escapeHtml(avgU)}</span></td>
+        <td class="col-t avg-col"><span class="avg-value">${escapeHtml(avgT)}</span></td>
+        <td class="col-score avg-col"><strong class="avg-value">${escapeHtml(avgTotal)}</strong></td>
+        <td class="col-count avg-col"><span class="avg-value">${escapeHtml(count)}</span></td>
         <td class="col-actions">
-          <button class="btn-icon btn-notes" data-id="${item.id}" aria-label="Edit notes for ${itemLabel}"><span aria-hidden="true">📝</span></button>
-          <button class="btn-icon btn-delete" data-id="${item.id}" aria-label="Delete ${itemLabel}"><span aria-hidden="true">🗑️</span></button>
+          <button class="btn-icon btn-notes" data-id="${escapeHtml(item.id)}" aria-label="Edit notes for ${itemLabel}"><span aria-hidden="true">📝</span></button>
+          <button class="btn-icon btn-delete" data-id="${escapeHtml(item.id)}" aria-label="Delete ${itemLabel}"><span aria-hidden="true">🗑️</span></button>
         </td>
       </tr>
     `;
@@ -612,7 +612,7 @@ async function handleSave() {
         u: userScore?.u,
         t: userScore?.t,
         notes: item.notes,
-        url: item.url
+        url: item.url ?? '' // '' clears the link server-side
       };
     });
     
@@ -767,8 +767,8 @@ function showConflictModal(serverList) {
       } else if (change.type === 'modified') {
         return `<div class="conflict-item modified">
           <strong>Item modified:</strong> ${escapeHtml(change.label)}<br>
-          Your scores: G=${change.local.g} U=${change.local.u} T=${change.local.t} (Score: ${change.local.score})<br>
-          Their scores: G=${change.server.g} U=${change.server.u} T=${change.server.t} (Score: ${change.server.score})
+          Your scores: G=${escapeHtml(change.local.g)} U=${escapeHtml(change.local.u)} T=${escapeHtml(change.local.t)} (Score: ${escapeHtml(change.local.score)})<br>
+          Their scores: G=${escapeHtml(change.server.g)} U=${escapeHtml(change.server.u)} T=${escapeHtml(change.server.t)} (Score: ${escapeHtml(change.server.score)})
         </div>`;
       } else if (change.type === 'added') {
         return `<div class="conflict-item added">
@@ -861,16 +861,12 @@ function getRecent() {
   }
 }
 
+// Escapes for both text and attribute contexts (quotes included)
 function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function escapeAttr(text) {
   return String(text ?? '')
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
