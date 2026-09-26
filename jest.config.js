@@ -22,6 +22,7 @@ export default {
     'functions/**/*.ts',
     '!functions/**/*.d.ts',
     '!functions/**/types.ts',
+    '!functions/__tests__/**',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
