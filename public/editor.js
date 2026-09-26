@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function getSlugFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('k');
+  return params.get('k') || params.get('slug'); // 'slug' = links made before ?k=
 }
 
 function startAutoRefresh() {
