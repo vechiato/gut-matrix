@@ -1,4 +1,10 @@
-// editor.js - GUT List editor logic
+// editor.js - GUT List editor logic (DOM and events; pure logic lives in gut-core.js)
+import {
+  escapeHtml, isHttpUrl, getSlugFromSearch, formatTimeAgo,
+  getOrCreateUserId, parseRecent, upsertRecent, removeRecent,
+  sortByPriority, buildSavePayload, compareListVersions,
+  buildCsv, buildJsonExport, exportFilename, mergeCsvImport, mergeJsonImport,
+} from './gut-core.js';
 
 const RECENT_KEY = 'gut_matrix_recent';
 const USER_ID_KEY = 'gut_user_id';
@@ -27,18 +33,7 @@ function getOwnerToken(slug) {
 // ── User ID management ────────────────────────────────────────────────────────
 
 function getUserId() {
-  if (userId) return userId;
-  
-  // Try to get from localStorage
-  let storedId = localStorage.getItem(USER_ID_KEY);
-  
-  if (!storedId) {
-    // Generate new UUID
-    storedId = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, storedId);
-  }
-  
-  userId = storedId;
+  if (!userId) userId = getOrCreateUserId(localStorage, USER_ID_KEY);
   return userId;
 }
 
@@ -90,15 +85,6 @@ function updateSaveStatus() {
   }
 }
 
-function formatTimeAgo(timestamp) {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
-}
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize user ID
@@ -142,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Error banner
   document.getElementById('errorBannerClose').addEventListener('click', hideBanner);
 
-
   // Export/Import handlers
   document.getElementById('exportCsvBtn').addEventListener('click', handleExportCsv);
   document.getElementById('exportJsonBtn').addEventListener('click', handleExportJson);
@@ -174,8 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function getSlugFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('k') || params.get('slug'); // 'slug' = links made before ?k=
+  return getSlugFromSearch(window.location.search);
 }
 
 function startAutoRefresh() {
@@ -303,7 +287,7 @@ function renderList() {
         <td class="col-label">
           <textarea data-field="label" class="item-input input-label" maxlength="400" placeholder="Item description" rows="1" aria-label="Item description">${escapeHtml(item.label)}</textarea>
           ${item.notes ? `<span class="has-notes" aria-hidden="true" title="${notePreview}">📝</span>` : ''}
-          ${/^https?:\/\//i.test(item.url || '') ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" aria-label="Open reference link"><span aria-hidden="true">🔗</span></a>' : ''}
+          ${isHttpUrl(item.url) ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noopener noreferrer" class="has-url" aria-label="Open reference link"><span aria-hidden="true">🔗</span></a>' : ''}
         </td>
         <td class="col-g">${renderScoreChips('g', userG, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
         <td class="col-u">${renderScoreChips('u', userU, currentList.scale.min, currentList.scale.max, itemLabel)}</td>
@@ -545,13 +529,7 @@ function handleChipClick(e) {
 function handleSort() {
   if (!currentList) return;
   
-  // Sort by average score if available, otherwise by user's score
-  const uid = getUserId();
-  currentList.items.sort((a, b) => {
-    const aScore = a.avgScore?.score ?? a.scores?.[uid]?.score ?? 0;
-    const bScore = b.avgScore?.score ?? b.scores?.[uid]?.score ?? 0;
-    return bScore - aScore;
-  });
+  sortByPriority(currentList.items, getUserId());
   
   renderList();
   isDirty = true;
@@ -601,34 +579,15 @@ async function handleSave() {
     btn.textContent = 'Saving...';
     setStatus('Saving...');
     
-    // Prepare items with user scores
     const uid = getUserId();
-    const itemsToSend = currentList.items.map(item => {
-      const userScore = item.scores?.[uid];
-      return {
-        id: item.id,
-        label: item.label,
-        g: userScore?.g,
-        u: userScore?.u,
-        t: userScore?.t,
-        notes: item.notes,
-        url: item.url ?? '' // '' clears the link server-side
-      };
-    });
-    
+    const title = document.getElementById('listTitle').textContent.trim();
     const response = await fetch(`/api/list/${slug}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-User-Id': uid,
       },
-      body: JSON.stringify({
-        title: document.getElementById('listTitle').textContent.trim(),
-        items: itemsToSend,
-        scale: currentList.scale,
-        version: currentList.version,
-        userId: uid
-      })
+      body: JSON.stringify(buildSavePayload(currentList, uid, title))
     });
     
     // Handle rate limiting
@@ -834,168 +793,42 @@ function setStatus(message, type = '') {
 
 function updateRecent() {
   if (!currentList) return;
-  const slug = getSlugFromUrl();
-  const recent = getRecent();
-  const filtered = recent.filter(r => r.slug !== slug);
-  filtered.unshift({
-    slug,
+  const recent = upsertRecent(parseRecent(localStorage.getItem(RECENT_KEY)), {
+    slug: getSlugFromUrl(),
     title: currentList.title || 'Untitled List',
     scaleMin: currentList.scale.min,
     scaleMax: currentList.scale.max,
     timestamp: Date.now()
   });
-  localStorage.setItem(RECENT_KEY, JSON.stringify(filtered.slice(0, 10)));
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
 }
 
 function removeFromRecent(slug) {
-  const recent = getRecent();
-  const filtered = recent.filter(r => r.slug !== slug);
-  localStorage.setItem(RECENT_KEY, JSON.stringify(filtered));
-}
-
-function getRecent() {
-  try {
-    return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-  } catch {
-    return [];
-  }
+  const recent = removeRecent(parseRecent(localStorage.getItem(RECENT_KEY)), slug);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
 }
 
 // Escapes for both text and attribute contexts (quotes included)
-function escapeHtml(text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function compareListVersions(localList, serverList) {
-  const changes = [];
-  
-  // Compare title
-  if (localList.title !== serverList.title) {
-    changes.push({
-      type: 'title',
-      local: localList.title,
-      server: serverList.title
-    });
-  }
-  
-  // Compare items
-  const serverItemsMap = new Map(serverList.items.map(item => [item.id, item]));
-  const localItemsMap = new Map(localList.items.map(item => [item.id, item]));
-  
-  // Check for modified or deleted items
-  localList.items.forEach(localItem => {
-    const serverItem = serverItemsMap.get(localItem.id);
-    if (!serverItem) {
-      changes.push({ type: 'deleted', id: localItem.id, label: localItem.label });
-    } else if (JSON.stringify(localItem) !== JSON.stringify(serverItem)) {
-      changes.push({
-        type: 'modified',
-        id: localItem.id,
-        label: localItem.label,
-        local: localItem,
-        server: serverItem
-      });
-    }
-  });
-  
-  // Check for new items
-  serverList.items.forEach(serverItem => {
-    if (!localItemsMap.has(serverItem.id)) {
-      changes.push({
-        type: 'added',
-        id: serverItem.id,
-        label: serverItem.label,
-        item: serverItem
-      });
-    }
-  });
-  
-  return changes;
-}
 
 // ============================================================================
 // Export/Import Functions
 // ============================================================================
 
-/**
- * Export list to CSV format
- * Includes all user scores and average scores
- */
 function handleExportCsv() {
   if (!currentList || !currentList.items.length) {
     setStatus('No items to export', 'error');
     return;
   }
-  
-  const uid = getUserId();
-  const rows = [];
-  
-  // Header row
-  rows.push([
-    'Item',
-    'Your G',
-    'Your U',
-    'Your T',
-    'Your Score',
-    'Avg G',
-    'Avg U',
-    'Avg T',
-    'Avg Score',
-    'Contributors',
-    'Notes'
-  ].join(','));
-  
-  // Data rows
-  currentList.items.forEach(item => {
-    const userScore = item.scores?.[uid];
-    const avg = item.avgScore;
-    
-    rows.push([
-      escapeCsv(item.label),
-      userScore?.g ?? '',
-      userScore?.u ?? '',
-      userScore?.t ?? '',
-      userScore?.score ?? '',
-      avg && avg.count >= 2 ? avg.g.toFixed(1) : '',
-      avg && avg.count >= 2 ? avg.u.toFixed(1) : '',
-      avg && avg.count >= 2 ? avg.t.toFixed(1) : '',
-      avg && avg.count >= 2 ? avg.score.toFixed(1) : '',
-      avg?.count ?? '',
-      escapeCsv(item.notes || '')
-    ].join(','));
-  });
-  
-  const csv = rows.join('\n');
-  const filename = `${sanitizeFilename(currentList.title)}_${new Date().toISOString().split('T')[0]}.csv`;
-  downloadFile(csv, filename, 'text/csv');
+  downloadFile(buildCsv(currentList, getUserId()), exportFilename(currentList.title, 'csv'), 'text/csv');
   setStatus('📥 CSV exported', 'success');
 }
 
-/**
- * Export list to JSON format
- * Includes complete list data with all user scores
- */
 function handleExportJson() {
   if (!currentList) {
     setStatus('No list to export', 'error');
     return;
   }
-  
-  // Create export object with metadata
-  const exportData = {
-    exportedAt: new Date().toISOString(),
-    exportedBy: getUserId(),
-    list: currentList
-  };
-  
-  const json = JSON.stringify(exportData, null, 2);
-  const filename = `${sanitizeFilename(currentList.title)}_${new Date().toISOString().split('T')[0]}.json`;
-  downloadFile(json, filename, 'application/json');
+  downloadFile(buildJsonExport(currentList, getUserId()), exportFilename(currentList.title, 'json'), 'application/json');
   setStatus('📥 JSON exported', 'success');
 }
 
@@ -1026,234 +859,26 @@ async function handleImportFile(e) {
   }
 }
 
-/**
- * Import data from CSV
- * Merges with existing items, adds your scores
- */
 async function importFromCsv(csvText) {
-  const lines = csvText.trim().split('\n');
-  if (lines.length < 2) {
-    throw new Error('CSV file is empty or invalid');
-  }
-  
-  // Skip header row
-  const dataLines = lines.slice(1);
-  const uid = getUserId();
-  let importedCount = 0;
-  let updatedCount = 0;
-  
-  dataLines.forEach(line => {
-    // Simple CSV parsing (handles quoted fields)
-    const values = parseCsvLine(line);
-    if (values.length < 5) return; // Skip invalid rows
-    
-    const [label, g, u, t, score, ...rest] = values;
-    const notes = rest[5] || ''; // Notes is at index 10 (6th element in rest)
-    
-    if (!label || !label.trim()) return; // Skip empty labels
-    
-    // Check if item already exists by label
-    const existingItem = currentList.items.find(item => 
-      item.label.toLowerCase() === label.trim().toLowerCase()
-    );
-    
-    if (existingItem) {
-      // Update existing item with your scores
-      if (!existingItem.scores) existingItem.scores = {};
-      
-      const gVal = parseFloat(g);
-      const uVal = parseFloat(u);
-      const tVal = parseFloat(t);
-      
-      if (!isNaN(gVal) && !isNaN(uVal) && !isNaN(tVal)) {
-        existingItem.scores[uid] = {
-          g: Math.max(currentList.scale.min, Math.min(gVal, currentList.scale.max)),
-          u: Math.max(currentList.scale.min, Math.min(uVal, currentList.scale.max)),
-          t: Math.max(currentList.scale.min, Math.min(tVal, currentList.scale.max)),
-          score: gVal * uVal * tVal
-        };
-        updatedCount++;
-      }
-      
-      if (notes && !existingItem.notes) {
-        existingItem.notes = notes.trim();
-      }
-    } else {
-      // Create new item
-      const newItem = {
-        id: crypto.randomUUID(),
-        label: label.trim(),
-        scores: {},
-        notes: notes ? notes.trim() : undefined
-      };
-      
-      const gVal = parseFloat(g);
-      const uVal = parseFloat(u);
-      const tVal = parseFloat(t);
-      
-      if (!isNaN(gVal) && !isNaN(uVal) && !isNaN(tVal)) {
-        newItem.scores[uid] = {
-          g: Math.max(currentList.scale.min, Math.min(gVal, currentList.scale.max)),
-          u: Math.max(currentList.scale.min, Math.min(uVal, currentList.scale.max)),
-          t: Math.max(currentList.scale.min, Math.min(tVal, currentList.scale.max)),
-          score: gVal * uVal * tVal
-        };
-      }
-      
-      currentList.items.push(newItem);
-      importedCount++;
-    }
-  });
-  
-  if (importedCount === 0 && updatedCount === 0) {
-    throw new Error('No valid data found in CSV file');
-  }
-  
+  const { importedCount, updatedCount } = mergeCsvImport(currentList, csvText, getUserId());
   renderList();
   isDirty = true;
-  
-  const message = `📥 Imported: ${importedCount} new items, ${updatedCount} updated`;
-  setStatus(message, 'success');
-  
-  // Auto-save after import
+  setStatus(`📥 Imported: ${importedCount} new items, ${updatedCount} updated`, 'success');
   triggerAutoSave();
 }
 
-/**
- * Import data from JSON
- * Merges items from JSON with current list
- */
 async function importFromJson(jsonText) {
-  let data;
-  try {
-    data = JSON.parse(jsonText);
-  } catch (error) {
-    throw new Error('Invalid JSON file');
-  }
-  
-  // Handle both direct list export and wrapped export
-  const importList = data.list || data;
-  
-  if (!importList.items || !Array.isArray(importList.items)) {
-    throw new Error('Invalid GUT list format: missing items array');
-  }
-  
-  const uid = getUserId();
-  let importedCount = 0;
-  let mergedCount = 0;
-  
-  importList.items.forEach(importItem => {
-    if (!importItem.id || !importItem.label) return;
-    
-    // Check if item exists by ID
-    const existingItem = currentList.items.find(item => item.id === importItem.id);
-    
-    if (existingItem) {
-      // Merge scores from all users in import
-      if (importItem.scores) {
-        if (!existingItem.scores) existingItem.scores = {};
-        
-        Object.entries(importItem.scores).forEach(([userId, score]) => {
-          existingItem.scores[userId] = score;
-        });
-        mergedCount++;
-      }
-      
-      // Update notes if empty
-      if (importItem.notes && !existingItem.notes) {
-        existingItem.notes = importItem.notes;
-      }
-    } else {
-      // Add new item with all scores from import
-      currentList.items.push({
-        id: importItem.id,
-        label: importItem.label,
-        scores: importItem.scores || {},
-        notes: importItem.notes
-      });
-      importedCount++;
-    }
-  });
-  
-  // Update scale if provided and different
-  if (importList.scale && (
-    importList.scale.min !== currentList.scale.min ||
-    importList.scale.max !== currentList.scale.max
-  )) {
-    currentList.scale = importList.scale;
-    setStatus(`Scale updated to ${importList.scale.min}–${importList.scale.max}`, 'info');
-  }
-  
-  if (importedCount === 0 && mergedCount === 0) {
-    throw new Error('No valid items found in JSON file');
-  }
-  
+  const { importedCount, mergedCount, scaleChanged } = mergeJsonImport(currentList, jsonText);
   renderList();
   isDirty = true;
-  
-  const message = `📥 Imported: ${importedCount} new items, ${mergedCount} merged`;
-  setStatus(message, 'success');
-
-  // Auto-save after import
+  const scaleNote = scaleChanged ? ` (scale updated to ${currentList.scale.min}–${currentList.scale.max})` : '';
+  setStatus(`📥 Imported: ${importedCount} new items, ${mergedCount} merged${scaleNote}`, 'success');
   triggerAutoSave();
 }
 
 // ============================================================================
 // Helper Functions for Export/Import
 // ============================================================================
-
-/**
- * Escape CSV field
- */
-function escapeCsv(value) {
-  if (value == null) return '';
-  const str = String(value);
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
-}
-
-/**
- * Parse a CSV line handling quoted fields
- */
-function parseCsvLine(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-    
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        i++; // Skip next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  result.push(current.trim());
-  return result;
-}
-
-/**
- * Sanitize filename
- */
-function sanitizeFilename(name) {
-  return (name || 'gut-list')
-    .replace(/[^a-z0-9_-]/gi, '_')
-    .replace(/_+/g, '_')
-    .toLowerCase();
-}
 
 /**
  * Download file
@@ -1270,7 +895,3 @@ function downloadFile(content, filename, mimeType) {
   URL.revokeObjectURL(url);
 }
 
-
-function getTimestamp() {
-  return new Date().toISOString();
-}
