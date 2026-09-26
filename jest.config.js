@@ -20,6 +20,7 @@ export default {
   ],
   collectCoverageFrom: [
     'functions/**/*.ts',
+    'public/gut-core.js',
     '!functions/**/*.d.ts',
     '!functions/**/types.ts',
     '!functions/__tests__/**',

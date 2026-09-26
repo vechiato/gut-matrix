@@ -1,15 +1,12 @@
-// app.js - Home page logic for GUT Matrix
+// app.js - Home page logic for GUT Matrix (DOM and events; pure logic lives in gut-core.js)
+import { escapeHtml, formatRelativeTime, getOrCreateUserId, parseRecent, upsertRecent } from './gut-core.js';
+
 const RECENT_KEY = 'gut_matrix_recent';
 const USER_ID_KEY = 'gut_user_id';
 
 // Get or create user ID
 function getUserId() {
-  let storedId = localStorage.getItem(USER_ID_KEY);
-  if (!storedId) {
-    storedId = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, storedId);
-  }
-  return storedId;
+  return getOrCreateUserId(localStorage, USER_ID_KEY);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -95,7 +92,7 @@ function loadRecentLists() {
     <a href="/matrix.html?k=${encodeURIComponent(item.slug)}" class="recent-item">
       <div class="recent-item-info">
         <div class="recent-item-title">${escapeHtml(item.title)}</div>
-        <div class="recent-item-meta">Scale ${item.scaleMin}-${item.scaleMax} • ${formatTime(item.timestamp)}</div>
+        <div class="recent-item-meta">Scale ${escapeHtml(item.scaleMin)}-${escapeHtml(item.scaleMax)} • ${formatRelativeTime(item.timestamp)}</div>
       </div>
       <span class="recent-item-arrow">→</span>
     </a>
@@ -103,31 +100,11 @@ function loadRecentLists() {
 }
 
 function getRecent() {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+  return parseRecent(localStorage.getItem(RECENT_KEY));
 }
 
 function addToRecent(item) {
-  const recent = getRecent();
-  const filtered = recent.filter(r => r.slug !== item.slug);
-  filtered.unshift(item);
-  localStorage.setItem(RECENT_KEY, JSON.stringify(filtered.slice(0, 10)));
-}
-
-function formatTime(ts) {
-  const mins = Math.floor((Date.now() - ts) / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hour${hrs > 1 ? 's' : ''} ago`;
-  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) > 1 ? 's' : ''} ago`;
+  localStorage.setItem(RECENT_KEY, JSON.stringify(upsertRecent(getRecent(), item)));
 }
 
 // Escapes for both text and attribute contexts (quotes included)
-function escapeHtml(text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
